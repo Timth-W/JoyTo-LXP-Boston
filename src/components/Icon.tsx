@@ -2,6 +2,7 @@
 import type { Category } from "@/lib/types";
 
 const PATHS = {
+  search: "M20.5 20.5l-5-5M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0z",
   home: "M3 10.5 12 3l9 7.5M5.5 9v11h13V9M9.5 20v-6h5v6",
   sparkle: "M12 3l1.8 4.9L19 9.7l-5.2 1.8L12 16.5l-1.8-5L5 9.7l5.2-1.8zM18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z",
   calendar: "M4 6.5h16v13.5H4zM4 10.5h16M8.5 3.5v5M15.5 3.5v5",

@@ -7,26 +7,31 @@ import { CATEGORY_ICON, Icon } from "@/components/Icon";
 import { Empty, PageHead } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import { CATEGORY_IDS } from "@/lib/constants";
-import { isActivityPast } from "@/lib/selectors";
+import { catalogueActivities } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
 import type { Category } from "@/lib/types";
 
 export default function ActivitiesPage() {
   const { state, me } = useStore();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [category, setCategory] = useState<Category | "all">("all");
   const [view, setView] = useState<"list" | "map">("list");
+  const [query, setQuery] = useState("");
   if (!me) return null;
 
-  const list = state.activities
-    .filter((a) => !isActivityPast(a.start))
-    .filter((a) => category === "all" || a.category === category)
-    .sort((a, b) => a.start.localeCompare(b.start));
+  const list = catalogueActivities(state, category, query, locale);
+  const filtered = category !== "all" || Boolean(query.trim());
+  function resetFilters() {
+    setCategory("all");
+    setQuery("");
+  }
 
   return (
-    <div className="stack-lg">
+    <div className="activities-page">
       <PageHead
         title={t.senior.activitiesTitle}
+        eyebrow={t.catalogue.eyebrow}
+        lead={t.catalogue.lead}
         action={
           <div className="segmented" role="group" aria-label={`${t.senior.list} / ${t.senior.map}`}>
             <button type="button" aria-pressed={view === "list"} onClick={() => setView("list")}>
@@ -39,31 +44,82 @@ export default function ActivitiesPage() {
         }
       />
 
-      <div className="scroll-x toggle-chips" role="group" aria-label={t.nav.activities}>
-        <label className="toggle-chip">
-          <input type="radio" name="category" checked={category === "all"} onChange={() => setCategory("all")} />
-          {t.senior.all}
-        </label>
-        {CATEGORY_IDS.map((c) => (
-          <label key={c} className="toggle-chip">
-            <input type="radio" name="category" checked={category === c} onChange={() => setCategory(c)} />
-            <Icon name={CATEGORY_ICON[c]} size={18} />
-            {t.categories[c]}
+      <section className="catalogue-filters" aria-labelledby="catalogue-filter-title">
+        <div className="catalogue-filter-head">
+          <h2 id="catalogue-filter-title">{t.catalogue.filterTitle}</h2>
+          <div className="catalogue-search">
+            <label htmlFor="activity-search" className="sr-only">
+              {t.catalogue.searchLabel}
+            </label>
+            <Icon name="search" size={22} />
+            <input
+              id="activity-search"
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t.catalogue.searchPlaceholder}
+              autoComplete="off"
+            />
+            {query ? (
+              <button type="button" className="icon-btn" onClick={() => setQuery("")} aria-label={t.catalogue.clearSearch}>
+                <Icon name="close" size={20} />
+              </button>
+            ) : null}
+          </div>
+        </div>
+        <div className="toggle-chips catalogue-categories" role="group" aria-labelledby="catalogue-filter-title">
+          <label className="toggle-chip">
+            <input type="radio" name="category" checked={category === "all"} onChange={() => setCategory("all")} />
+            {t.senior.all}
           </label>
-        ))}
-      </div>
-
-      {list.length === 0 ? (
-        <Empty>{t.senior.noActivity}</Empty>
-      ) : view === "map" ? (
-        <ActivityMap key={category} activities={list} viewer={me} />
-      ) : (
-        <div className="grid">
-          {list.map((a) => (
-            <ActivityCard key={a.id} activity={a} viewer={me} />
+          {CATEGORY_IDS.map((c) => (
+            <label key={c} className="toggle-chip">
+              <input type="radio" name="category" checked={category === c} onChange={() => setCategory(c)} />
+              <Icon name={CATEGORY_ICON[c]} size={18} />
+              {t.categories[c]}
+            </label>
           ))}
         </div>
-      )}
+      </section>
+
+      <section className="catalogue-results" aria-labelledby="catalogue-results-title">
+        <div className="catalogue-results-head">
+          <div className="stack-sm">
+            <h2 id="catalogue-results-title" aria-live="polite" aria-atomic="true">
+              {t.catalogue.resultCount(list.length)}
+            </h2>
+            <p>{view === "map" ? t.catalogue.mapHint : t.catalogue.dateOrder}</p>
+          </div>
+          {filtered ? (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={resetFilters}>
+              <Icon name="refresh" size={18} />
+              {t.catalogue.reset}
+            </button>
+          ) : null}
+        </div>
+        {list.length === 0 ? (
+          <Empty
+            icon="leaf"
+            action={
+              filtered ? (
+                <button type="button" className="btn btn-secondary" onClick={resetFilters}>
+                  {t.catalogue.showAll}
+                </button>
+              ) : undefined
+            }
+          >
+            {query.trim() ? t.catalogue.noSearchResults : t.senior.noActivity}
+          </Empty>
+        ) : view === "map" ? (
+          <ActivityMap key={`${category}:${query}`} activities={list} viewer={me} featured />
+        ) : (
+          <div className="catalogue-grid">
+            {list.map((a) => (
+              <ActivityCard key={a.id} activity={a} viewer={me} featured headingLevel={3} />
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

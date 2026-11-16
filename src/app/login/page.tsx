@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { AuthFrame } from "@/components/AuthFrame";
-import { Icon } from "@/components/Icon";
 import { useI18n } from "@/i18n";
 import { hashPassword, isValidEmail } from "@/lib/auth";
 import { HOME_BY_ROLE } from "@/lib/constants";
@@ -92,12 +91,6 @@ export default function LoginPage() {
             {t.auth.loginSubmit}
           </button>
         </form>
-        <div className="notice notice-navy small">
-          <Icon name="sparkle" size={20} />
-          <p>
-            {t.auth.demoHint} <Link href="/#demo">{t.landing.demoTitle}</Link>
-          </p>
-        </div>
         <p className="center">
           {t.auth.noAccount} <Link href="/signup">{t.landing.signup}</Link>
         </p>

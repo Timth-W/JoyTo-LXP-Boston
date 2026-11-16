@@ -27,7 +27,11 @@ function LinkRow({ link, other, viewer }: { link: FamilyLink; other: User; viewe
       {confirming ? (
         <div className="row">
           <span className="small strong">{question}</span>
-          <button type="button" className="btn btn-danger-solid btn-sm" onClick={() => void mutate("unlink-family", { linkId: link.id, byUserId: viewer.id }).catch(() => undefined)}>
+          <button
+            type="button"
+            className="btn btn-danger-solid btn-sm"
+            onClick={() => void mutate("unlink-family", { linkId: link.id, byUserId: viewer.id }).catch(() => undefined)}
+          >
             {viewer.role === "senior" ? t.profile.removeLink : t.family.unlink}
           </button>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirming(false)}>
@@ -48,13 +52,25 @@ export function SeniorFamilyPanel({ senior }: { senior: User }) {
   const { state, mutate } = useStore();
   const { t } = useI18n();
   const links = linksOfSenior(state, senior.id);
+  const [regenerating, setRegenerating] = useState(false);
+  async function regenerateCode() {
+    if (regenerating) return;
+    setRegenerating(true);
+    try {
+      await mutate("regenerate-invite-code", { seniorId: senior.id });
+    } catch {
+      /* The shared backend notice explains failed requests. */
+    } finally {
+      setRegenerating(false);
+    }
+  }
   return (
-    <section className="card" aria-labelledby="family-title">
+    <section className="card profile-family-panel" aria-labelledby="family-title">
       <h2 id="family-title" className="row" style={{ fontSize: "1.25rem", gap: 10 }}>
         <Icon name="users" /> {t.profile.familyTitle}
       </h2>
       <p className="muted">{t.profile.familyLead}</p>
-      <div className="stack-sm">
+      <div className="profile-invitation">
         <span className="label">{t.profile.inviteCode}</span>
         <div className="code-box">
           <span className="code-value" data-testid="invite-code">
@@ -62,13 +78,19 @@ export function SeniorFamilyPanel({ senior }: { senior: User }) {
           </span>
           <div className="row">
             <CopyButton value={senior.inviteCode ?? ""} />
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => void mutate("regenerate-invite-code", { seniorId: senior.id }).catch(() => undefined)}>
+            <button type="button" className="btn btn-ghost btn-sm" disabled={regenerating} onClick={() => void regenerateCode()}>
               <Icon name="refresh" size={18} /> {t.profile.regenerate}
             </button>
           </div>
         </div>
-        <small className="help">{t.profile.inviteHelp}</small>
+        <small className="help">{t.profileEditor.codeHelp}</small>
+        <ol className="profile-invite-steps">
+          {t.profileEditor.inviteSteps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
       </div>
+      <h3 className="profile-relatives-title">{t.profileEditor.linkedRelatives}</h3>
       {links.length ? (
         <ul className="list">
           {links.map((l) => {
@@ -77,7 +99,10 @@ export function SeniorFamilyPanel({ senior }: { senior: User }) {
           })}
         </ul>
       ) : (
-        <p className="muted">{t.profile.noFamily}</p>
+        <div className="profile-family-empty">
+          <Icon name="users" size={26} />
+          <p>{t.profile.noFamily}</p>
+        </div>
       )}
     </section>
   );

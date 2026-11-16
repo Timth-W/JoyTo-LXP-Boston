@@ -11,9 +11,9 @@ export default function SeniorProfilePage() {
   const { t } = useI18n();
   if (!me) return null;
   return (
-    <div className="stack-lg">
-      <PageHead title={t.profile.title} />
-      <div className="split">
+    <div className="profile-page">
+      <PageHead title={t.profile.title} eyebrow={t.profileEditor.eyebrow} lead={t.profileEditor.lead} />
+      <div className="profile-page-layout">
         <ProfileForm user={me} />
         <SeniorFamilyPanel senior={me} />
       </div>

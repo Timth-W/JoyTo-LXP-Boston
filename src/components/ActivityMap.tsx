@@ -27,7 +27,7 @@ const SECTOR_POS: Record<SectorId, { x: number; y: number }> = {
   university: { x: 86, y: 14 },
 };
 
-export function ActivityMap({ activities, viewer }: { activities: Activity[]; viewer?: User }) {
+export function ActivityMap({ activities, viewer, featured = false }: { activities: Activity[]; viewer?: User; featured?: boolean }) {
   const { state } = useStore();
   const { t, f } = useI18n();
   const [selected, setSelected] = useState<string | null>(activities[0]?.id ?? null);
@@ -35,7 +35,7 @@ export function ActivityMap({ activities, viewer }: { activities: Activity[]; vi
   const home = viewer ? SECTOR_POS[viewer.sector] : null;
 
   return (
-    <div className="stack">
+    <div className={featured ? "catalogue-map-layout" : "stack"}>
       <div className="map" role="group" aria-label={t.senior.mapLegend}>
         <svg className="map-bg" viewBox="0 0 100 75" preserveAspectRatio="none" aria-hidden="true">
           <rect width="100" height="75" fill="#efe7d6" />
@@ -93,7 +93,7 @@ export function ActivityMap({ activities, viewer }: { activities: Activity[]; vi
           );
         })}
       </div>
-      {current ? <ActivityCard activity={current} viewer={viewer} /> : null}
+      {current ? <ActivityCard activity={current} viewer={viewer} featured={featured} /> : null}
     </div>
   );
 }

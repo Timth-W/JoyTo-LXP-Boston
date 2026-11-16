@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useState } from "react";
 import { CATEGORY_ICON, Icon } from "@/components/Icon";
 import { BackLink, Empty, Person } from "@/components/ui";
 import { useI18n } from "@/i18n";
@@ -12,6 +13,7 @@ export default function ActivityDetail() {
   const { id } = useParams<{ id: string }>();
   const { state, me, mutate } = useStore();
   const { t, f } = useI18n();
+  const [pending, setPending] = useState(false);
   if (!me) return null;
   const senior = me;
   const a = activityById(state, id);
@@ -29,46 +31,85 @@ export default function ActivityDetail() {
   const left = seatsLeft(state, a);
   const past = isPast(state, a.start);
 
+  async function updateRegistration(action: "register" | "unregister") {
+    if (pending) return;
+    setPending(true);
+    try {
+      if (action === "register") await mutate("register", { activityId: activity.id, seniorId: senior.id, via: "catalogue" });
+      else await mutate("unregister", { activityId: activity.id, seniorId: senior.id });
+    } catch {
+      // The shared backend notice explains failed requests.
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
-    <div className="stack-lg">
+    <div className="activity-detail-page">
       <BackLink href="/senior/activities" />
-      <header className="stack">
+      <header className="activity-detail-head">
         <span className="chip" style={{ alignSelf: "flex-start" }}>
           <Icon name={CATEGORY_ICON[a.category]} size={16} /> {t.categories[a.category]}
         </span>
         <h1>{f.text(a.title)}</h1>
-        <p style={{ fontSize: "1.1rem", maxWidth: "62ch" }}>{f.text(a.description)}</p>
+        <p>{f.text(a.description)}</p>
       </header>
 
-      <div className="split">
-        <section className="card">
-          <div className="meta" style={{ fontSize: "1.02rem", color: "var(--text)", gap: 10 }}>
-            <span>
-              <Icon name="calendar" size={20} /> {f.date(a.start)}
-            </span>
-            <span>
-              <Icon name="pin" size={20} /> {f.text(a.place)} · {t.sectors[a.sector]}
-            </span>
-            <span>
-              <Icon name="users" size={20} /> {t.activity.organizer} {f.text(a.organizer)}
-            </span>
-          </div>
-          <div className="card-actions">
+      <div className="activity-detail-layout">
+        <section className="card activity-practical" aria-labelledby="practical-title">
+          <h2 id="practical-title">{t.activityDetail.practicalTitle}</h2>
+          <dl className="activity-facts">
+            <div>
+              <dt>
+                <span className="activity-fact-icon">
+                  <Icon name="calendar" />
+                </span>
+                {t.activityDetail.when}
+              </dt>
+              <dd>{f.date(a.start)}</dd>
+            </div>
+            <div>
+              <dt>
+                <span className="activity-fact-icon">
+                  <Icon name="pin" />
+                </span>
+                {t.activityDetail.where}
+              </dt>
+              <dd>
+                {f.text(a.place)}
+                <span className="activity-fact-secondary">{t.sectors[a.sector]}</span>
+              </dd>
+            </div>
+            <div>
+              <dt>
+                <span className="activity-fact-icon">
+                  <Icon name="users" />
+                </span>
+                {t.activityDetail.organizedBy}
+              </dt>
+              <dd>{f.text(a.organizer)}</dd>
+            </div>
+          </dl>
+          <div className="activity-registration" aria-busy={pending}>
             {past ? (
               <span className="badge">{t.activity.past}</span>
             ) : mine ? (
               <>
-                <span className="badge badge-ok">{t.activity.registered}</span>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => void mutate("unregister", { activityId: activity.id, seniorId: senior.id }).catch(() => undefined)}>
+                <span className="badge badge-ok">
+                  <Icon name="check" size={17} />
+                  {t.activity.registered}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  disabled={pending}
+                  onClick={() => void updateRegistration("unregister")}
+                >
                   {t.activity.unregister}
                 </button>
               </>
             ) : left > 0 ? (
-              <button
-                type="button"
-                className="btn btn-block-mobile"
-                onClick={() => void mutate("register", { activityId: activity.id, seniorId: senior.id, via: "catalogue" }).catch(() => undefined)}
-              >
+              <button type="button" className="btn btn-block-mobile" disabled={pending} onClick={() => void updateRegistration("register")}>
                 <Icon name="check" /> {t.activity.imIn}
               </button>
             ) : (
@@ -79,26 +120,40 @@ export default function ActivityDetail() {
         </section>
 
         {!past ? (
-          <section className="card card-sage">
-            <h2 style={{ fontSize: "1.2rem" }} className="row">
-              <Icon name="heart" /> {t.activity.goWithCompanion}
-            </h2>
+          <aside className="card activity-companion" aria-labelledby="companion-title">
+            <span className="activity-companion-icon">
+              <Icon name="heart" size={30} />
+            </span>
+            <p className="hand">{t.activityDetail.companionEyebrow}</p>
+            <h2 id="companion-title">{t.activity.goWithCompanion}</h2>
             <p>{t.activity.goWithCompanionHelp}</p>
             <Link href={`/senior/outings/new?activity=${a.id}`} className="btn btn-secondary btn-sm" style={{ alignSelf: "flex-start" }}>
               {t.senior.newOuting}
+              <Icon name="arrowRight" size={18} />
             </Link>
-          </section>
+          </aside>
         ) : null}
       </div>
 
-      <section className="stack">
-        <h2>{t.activity.whoGoes}</h2>
-        {others.length ? (
-          <div className="grid">
+      <section className="activity-participants" aria-labelledby="participants-title">
+        <div className="outings-section-head">
+          <div className="stack-sm">
+            <h2 id="participants-title">{t.activity.whoGoes}</h2>
+            <p className="muted">{t.activityDetail.participantsLead}</p>
+          </div>
+          <span className="outings-count">{t.activityDetail.participantCount(going.length)}</span>
+        </div>
+        {going.length ? (
+          <div className="activity-people-grid">
+            {mine ? (
+              <div className="card activity-person activity-person-self">
+                <Person user={senior} showLastName={false} subtitle={past ? t.activityDetail.youWent : t.activityDetail.youGoing} />
+              </div>
+            ) : null}
             {others.map((u) => {
               const shared = u.interests.filter((i) => senior.interests.includes(i));
               return (
-                <div key={u.id} className="card card-flat" style={{ padding: 16 }}>
+                <div key={u.id} className="card activity-person">
                   <Person
                     user={u}
                     showLastName={false}
@@ -113,7 +168,7 @@ export default function ActivityDetail() {
             })}
           </div>
         ) : (
-          <Empty icon="users">{t.activity.nobodyYet}</Empty>
+          <Empty icon="users">{past ? t.activityDetail.noParticipantsPast : t.activity.nobodyYet}</Empty>
         )}
       </section>
     </div>

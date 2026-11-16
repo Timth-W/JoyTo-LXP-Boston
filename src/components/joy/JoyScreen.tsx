@@ -248,83 +248,108 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
         : t.joy.greeting.family(viewer.firstName, "");
 
   return (
-    <div className="stack-lg">
+    <div className="joy-page">
+      <header className="joy-page-head">
+        <p className="hand">{t.joy.pageEyebrow}</p>
+        <h1>{t.joy.pageTitle}</h1>
+        <p>{t.joy.pageLead}</p>
+      </header>
       <section className="joy-stage" aria-label={t.joy.name}>
-        <button
-          type="button"
-          className="joy-orb"
-          data-status={voice.status}
-          onClick={voice.active ? (voice.status === "waiting" && voice.canListen ? voice.listen : undefined) : startVoice}
-          aria-label={voice.active ? statusLabel[voice.status] : t.joy.start}
-        >
-          <LogoMark size={76} />
-        </button>
-        <p className="joy-status" role="status">
-          {voice.active ? statusLabel[voice.status] : t.joy.name}
-        </p>
-        <p className="joy-caption" aria-live="polite">
-          {voice.joyLine || (viewer.role === "family" ? t.joy.lead : hello)}
-        </p>
-        {voice.userLine ? (
-          <p className="joy-user">
-            <strong>{t.joy.you} :</strong> {voice.userLine}
-          </p>
-        ) : null}
-        {voice.error ? <p className="notice notice-warn small">{voice.error === "mic" ? t.joy.micDenied : t.joy.error}</p> : null}
-
-        {!voice.active ? (
-          <button type="button" className="btn joy-start" onClick={startVoice}>
-            <Icon name="mic" /> {t.joy.start}
+        <div className="joy-presence">
+          <button
+            type="button"
+            className="joy-orb"
+            data-status={voice.status}
+            onClick={voice.active ? (voice.status === "waiting" && voice.canListen ? voice.listen : undefined) : startVoice}
+            aria-label={voice.active ? statusLabel[voice.status] : t.joy.start}
+            disabled={!voice.ready || (voice.active && !(voice.status === "waiting" && voice.canListen))}
+          >
+            <LogoMark size={76} />
           </button>
-        ) : (
-          <div className="row" style={{ justifyContent: "center" }}>
-            {voice.mode === "demo" && voice.canListen ? (
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={voice.listen}
-                disabled={voice.status === "listening" || voice.status === "speaking"}
-              >
-                <Icon name="mic" size={20} /> {t.joy.speak}
-              </button>
-            ) : null}
-            {voice.mode === "realtime" ? (
-              <button type="button" className="btn btn-secondary btn-sm" onClick={voice.toggleMic} aria-pressed={!voice.micOn}>
-                <Icon name="mic" size={20} /> {voice.micOn ? t.joy.mute : t.joy.unmute}
-              </button>
-            ) : null}
-            <button type="button" className="btn btn-secondary btn-sm" onClick={voice.stop}>
-              <Icon name="close" size={20} /> {t.joy.end}
-            </button>
-          </div>
-        )}
+          <p className="joy-status" role="status">
+            {voice.active ? statusLabel[voice.status] : t.joy.idleStatus}
+          </p>
+        </div>
+        <div className="joy-conversation">
+          <p className="joy-conversation-label">
+            <Icon name="sparkle" size={18} />
+            {t.joy.name}
+          </p>
+          <p className="joy-caption" aria-live="polite">
+            {voice.joyLine || (viewer.role === "family" ? t.joy.lead : hello)}
+          </p>
+          {!voice.active ? <p className="joy-conversation-hint">{t.joy.conversationHint}</p> : null}
+          {voice.userLine ? (
+            <p className="joy-user">
+              <strong>{t.joy.you} :</strong> {voice.userLine}
+            </p>
+          ) : null}
+          {voice.error ? <p className="notice notice-warn small">{voice.error === "mic" ? t.joy.micDenied : t.joy.error}</p> : null}
 
-        {voice.active ? (
-          <form className="joy-type" onSubmit={onSubmit}>
-            <label htmlFor="joy-text" className="sr-only">
-              {t.joy.typePlaceholder}
-            </label>
-            <input
-              id="joy-text"
-              className="input"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder={t.joy.typePlaceholder}
-              autoComplete="off"
-              maxLength={300}
-            />
-            <button type="submit" className="icon-btn" aria-label={t.joy.send} disabled={!text.trim()}>
-              <Icon name="send" />
+          {!voice.active ? (
+            <button type="button" className="btn joy-start" onClick={startVoice} disabled={!voice.ready}>
+              <Icon name="mic" /> {t.joy.start}
             </button>
-          </form>
-        ) : null}
-        <span className="joy-mode">
-          <Icon name="sparkle" size={14} /> {voice.mode === "realtime" ? t.joy.realtimeMode : t.joy.demoMode}
-        </span>
+          ) : (
+            <div className="joy-controls">
+              {voice.mode === "demo" && voice.canListen ? (
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={voice.listen}
+                  disabled={voice.status === "listening" || voice.status === "speaking"}
+                >
+                  <Icon name="mic" size={20} /> {t.joy.speak}
+                </button>
+              ) : null}
+              {voice.mode === "realtime" ? (
+                <button type="button" className="btn btn-secondary btn-sm" onClick={voice.toggleMic} aria-pressed={!voice.micOn}>
+                  <Icon name="mic" size={20} /> {voice.micOn ? t.joy.mute : t.joy.unmute}
+                </button>
+              ) : null}
+              <button type="button" className="btn btn-secondary btn-sm" onClick={voice.stop}>
+                <Icon name="close" size={20} /> {t.joy.end}
+              </button>
+            </div>
+          )}
+
+          {voice.active ? (
+            <form className="joy-type" onSubmit={onSubmit}>
+              <label htmlFor="joy-text" className="sr-only">
+                {t.joy.typePlaceholder}
+              </label>
+              <input
+                id="joy-text"
+                className="input"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder={t.joy.typePlaceholder}
+                autoComplete="off"
+                maxLength={300}
+              />
+              <button type="submit" className="icon-btn" aria-label={t.joy.send} disabled={!text.trim()}>
+                <Icon name="send" />
+              </button>
+            </form>
+          ) : null}
+        </div>
+        <p className="joy-trust">
+          <Icon name="shield" size={19} />
+          {t.joy.confirmationHint}
+        </p>
       </section>
 
-      <section className="stack" aria-labelledby="joy-proposals">
-        <h2 id="joy-proposals">{t.joy.proposalsTitle}</h2>
+      <section className="joy-suggestions" aria-labelledby="joy-proposals">
+        <div className="joy-suggestions-head">
+          <div className="stack-sm">
+            <h2 id="joy-proposals">{t.joy.proposalsTitle}</h2>
+            <p>{t.joy.proposalsHint}</p>
+          </div>
+          <span className="joy-suggestions-note">
+            <Icon name="heart" size={18} />
+            {t.joy.yourChoice}
+          </span>
+        </div>
         {proposals.length ? (
           <div className="proposal-grid">
             {proposals.map((p) => {
@@ -340,20 +365,30 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
                     setSheetId(p.id);
                   }}
                 >
-                  <span className="cat-icon" aria-hidden="true">
-                    <Icon name={c.icon} />
+                  <span className="proposal-top">
+                    <span className="cat-icon" aria-hidden="true">
+                      <Icon name={c.icon} />
+                    </span>
+                    <span className="proposal-kind">{t.joy.proposalKinds[p.kind]}</span>
                   </span>
-                  <span className="min-0" style={{ flex: 1 }}>
+                  <span className="proposal-body">
                     <span className="proposal-title">{c.title}</span>
                     <span className="proposal-sub">{c.subtitle}</span>
                   </span>
-                  <span className="proposal-action">{c.action}</span>
+                  <span className="proposal-footer">
+                    <span className="proposal-action">{c.action}</span>
+                    <Icon name="arrowRight" size={20} />
+                  </span>
                 </button>
               );
             })}
           </div>
         ) : (
-          <p className="muted">{t.joy.noProposals}</p>
+          <div className="joy-empty">
+            <Icon name="leaf" size={32} />
+            <p>{t.joy.noProposals}</p>
+            <p className="muted">{t.joy.emptyHint}</p>
+          </div>
         )}
       </section>
 

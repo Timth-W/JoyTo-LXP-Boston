@@ -20,12 +20,14 @@ export function ActivityCard({
   footer,
   via = "catalogue",
   headingLevel = 3,
+  featured = false,
 }: {
   activity: Activity;
   viewer?: User;
   footer?: ReactNode;
   via?: "assistant" | "catalogue";
   headingLevel?: 2 | 3;
+  featured?: boolean;
 }) {
   const { state, mutate } = useStore();
   const { t, f } = useI18n();
@@ -35,9 +37,25 @@ export function ActivityCard({
   const mine = viewer ? isRegistered(state, activity.id, viewer.id) : false;
   const others = going.filter((u) => u.id !== viewer?.id);
   const Heading = headingLevel === 2 ? "h2" : "h3";
+  const metadata = (
+    <div className="meta">
+      <span>
+        <Icon name="clock" size={18} /> {f.date(activity.start)}
+      </span>
+      <span>
+        <Icon name="pin" size={18} /> {f.text(activity.place)}
+      </span>
+    </div>
+  );
 
   return (
-    <article className="card activity-card">
+    <article className={`card activity-card${featured ? " activity-card-featured" : ""}`}>
+      {featured ? (
+        <div className="activity-category">
+          <Icon name={CATEGORY_ICON[activity.category]} size={18} />
+          {t.categories[activity.category]}
+        </div>
+      ) : null}
       <div className="activity-top">
         <div className="date-block" aria-hidden="true">
           <span className="date-day">{toDate(activity.start).getDate()}</span>
@@ -46,26 +64,22 @@ export function ActivityCard({
         <div className="min-0 stack-sm" style={{ flex: 1 }}>
           <Heading>
             {viewer?.role === "senior" ? (
-              <Link href={`/senior/activities/${activity.id}`} style={{ color: "inherit", textDecoration: "none" }}>
+              <Link href={`/senior/activities/${activity.id}`} className="activity-title-link">
                 {f.text(activity.title)}
               </Link>
             ) : (
               f.text(activity.title)
             )}
           </Heading>
-          <div className="meta">
-            <span>
-              <Icon name="clock" size={16} /> {f.date(activity.start)}
-            </span>
-            <span>
-              <Icon name="pin" size={16} /> {f.text(activity.place)}
-            </span>
-          </div>
+          {!featured ? metadata : null}
         </div>
-        <span className="cat-icon" title={t.categories[activity.category]}>
-          <Icon name={CATEGORY_ICON[activity.category]} label={t.categories[activity.category]} />
-        </span>
+        {!featured ? (
+          <span className="cat-icon" title={t.categories[activity.category]}>
+            <Icon name={CATEGORY_ICON[activity.category]} label={t.categories[activity.category]} />
+          </span>
+        ) : null}
       </div>
+      {featured ? metadata : null}
 
       {others.length ? (
         <div className="row" style={{ gap: 10 }}>
@@ -87,12 +101,20 @@ export function ActivityCard({
           ) : mine ? (
             <>
               <span className="badge badge-ok">{t.activity.registered}</span>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => void mutate("unregister", { activityId: activity.id, seniorId: viewer.id }).catch(() => undefined)}>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => void mutate("unregister", { activityId: activity.id, seniorId: viewer.id }).catch(() => undefined)}
+              >
                 {t.activity.unregister}
               </button>
             </>
           ) : left > 0 ? (
-            <button type="button" className="btn btn-sm" onClick={() => void mutate("register", { activityId: activity.id, seniorId: viewer.id, via }).catch(() => undefined)}>
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => void mutate("register", { activityId: activity.id, seniorId: viewer.id, via }).catch(() => undefined)}
+            >
               <Icon name="check" size={18} /> {t.activity.imIn}
             </button>
           ) : (

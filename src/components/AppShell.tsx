@@ -61,7 +61,7 @@ function isActive(path: string, item: NavItem) {
 }
 
 export function AppShell({ role, children }: { role?: Role; children: ReactNode }) {
-  const { state, hydrated, me, mutate, reset } = useStore();
+  const { state, hydrated, me, mutate } = useStore();
   const { t } = useI18n();
   const router = useRouter();
   const path = usePathname();
@@ -171,15 +171,7 @@ export function AppShell({ role, children }: { role?: Role; children: ReactNode 
                   <div className="menu-label">{t.nav.language}</div>
                   <LanguageSwitch />
                 </div>
-                <div className="menu-section">
-                  <button type="button" className="menu-item" style={{ paddingLeft: 0 }} onClick={() => void reset().catch(() => undefined)}>
-                    <Icon name="refresh" /> {t.nav.resetDemo}
-                  </button>
-                </div>
                 <div className="menu-section" style={{ paddingInline: 0 }}>
-                  <button type="button" className="menu-item" onClick={() => signOut("/#demo")}>
-                    <Icon name="users" /> {t.nav.switchProfile}
-                  </button>
                   <button type="button" className="menu-item" onClick={() => signOut("/")}>
                     <Icon name="logout" /> {t.nav.logout}
                   </button>

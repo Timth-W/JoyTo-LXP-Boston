@@ -1,22 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
+import { LandingPreview } from "@/components/LandingPreview";
 import { Logo, LogoMark } from "@/components/Logo";
-import { Avatar, Loading } from "@/components/ui";
+import { Loading } from "@/components/ui";
+import { WelcomeEntrance } from "@/components/WelcomeEntrance";
 import { useI18n } from "@/i18n";
-import { DEMO_PASSWORD, HOME_BY_ROLE } from "@/lib/constants";
-import { activityById, attendees } from "@/lib/selectors";
+import { HOME_BY_ROLE } from "@/lib/constants";
+import { activityById } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
-import type { Role } from "@/lib/types";
-
-const ROLE_STYLE: Record<Role, { icon: "bench" | "heart" | "users"; bg: string; fg: string }> = {
-  senior: { icon: "bench", bg: "var(--sage-soft)", fg: "#2c4a35" },
-  companion: { icon: "heart", bg: "var(--coral-soft)", fg: "var(--coral-text)" },
-  family: { icon: "users", bg: "#e4ebf1", fg: "var(--navy)" },
-};
 
 function Leaf({ size, style }: { size: number; style: React.CSSProperties }) {
   return (
@@ -28,65 +22,76 @@ function Leaf({ size, style }: { size: number; style: React.CSSProperties }) {
 }
 
 export default function Landing() {
-  const { state, me, hydrated, mutate } = useStore();
-  const { t, f } = useI18n();
-  const router = useRouter();
+  return (
+    <WelcomeEntrance>
+      <LandingContent />
+    </WelcomeEntrance>
+  );
+}
 
-  const demoUsers = state.users.filter((u) => u.demo);
+function LandingContent() {
+  const { state, me, hydrated } = useStore();
+  const { t, f } = useI18n();
+
   const sample = activityById(state, "a1");
-  const sampleMates = sample ? attendees(state, sample.id).map((u) => u.firstName) : [];
-  const previewSenior = state.users.find((user) => user.role === "senior");
 
   if (!hydrated) return <Loading />;
 
-  async function enterDemo(userId: string, role: Role) {
-    try {
-      await mutate("login-as-demo", { userId });
-      router.push(HOME_BY_ROLE[role]);
-    } catch {
-      // The shared backend notice explains the failed request.
-    }
-  }
-
   return (
-    <div className="stack-lg" style={{ gap: 0 }}>
+    <div className="landing-page">
+      <a href="#main" className="skip-link">
+        {t.common.skip}
+      </a>
       <header className="landing-header">
         <div className="container">
-          <Logo size={42} />
-          <div className="row" style={{ gap: 8 }}>
+          <Logo size={36} />
+          <nav className="landing-actions" aria-label={t.nav.mainNav}>
+            <a href="#how" className="landing-nav-link">
+              {t.landing.stepsTitle}
+            </a>
             <LanguageSwitch />
             <Link href="/login" className="btn btn-ghost btn-sm">
               {t.landing.login}
             </Link>
-          </div>
+          </nav>
         </div>
       </header>
 
-      <main id="main">
+      <main id="main" tabIndex={-1}>
         <section className="container hero">
-          <div className="stack-lg" style={{ gap: 20 }}>
-            <p className="hand">{t.common.tagline}</p>
-            <h1>{t.landing.title}</h1>
+          <div className="hero-copy">
+            <p className="landing-eyebrow">
+              <Icon name="leaf" size={18} />
+              {t.landing.eyebrow}
+            </p>
+            <h1>
+              {t.landing.title}
+              <span>{t.landing.titleAccent}</span>
+            </h1>
             <p className="lead">{t.landing.lead}</p>
-            <div className="row">
+            <div className="hero-actions">
               {me ? (
                 <Link href={HOME_BY_ROLE[me.role]} className="btn btn-block-mobile">
-                  {t.landing.demoEnter(me.firstName)} <Icon name="arrowRight" size={20} />
+                  {t.landing.continueAs(me.firstName)} <Icon name="arrowRight" size={20} />
                 </Link>
               ) : (
-                <>
-                  <Link href="/signup" className="btn btn-block-mobile">
-                    {t.landing.signup}
-                  </Link>
-                  <a href="#demo" className="btn btn-secondary btn-block-mobile">
-                    {t.landing.demoTitle}
-                  </a>
-                </>
+                <Link href="/signup" className="btn btn-block-mobile">
+                  {t.landing.signup}
+                  <Icon name="arrowRight" size={20} />
+                </Link>
               )}
+              <a href="#how" className="btn btn-secondary">
+                {t.landing.discover}
+                <Icon name="chevronDown" size={18} />
+              </a>
             </div>
+            <p className="hero-reassurance">
+              <Icon name="check" size={18} />
+              {t.landing.reassurance}
+            </p>
           </div>
 
-          <div className="hero-art" aria-hidden="true">
+          <LandingPreview>
             <Leaf size={70} style={{ top: -10, left: "4%", transform: "rotate(-20deg)" }} />
             <Leaf size={46} style={{ bottom: 40, right: "2%", color: "var(--sun)", transform: "rotate(40deg)" }} />
             <div className="phone">
@@ -96,7 +101,7 @@ export default function Landing() {
                   <span className="chip">{t.nav.activities}</span>
                 </div>
                 {sample ? (
-                  <div className="card" style={{ padding: 16, gap: 10 }}>
+                  <div className="card preview-activity" style={{ padding: 16, gap: 10 }}>
                     <div className="activity-top">
                       <div className="date-block" style={{ width: 54 }}>
                         <span className="date-day">{new Date(sample.start).getDate()}</span>
@@ -107,32 +112,66 @@ export default function Landing() {
                         <p className="muted small">{f.date(sample.start)}</p>
                       </div>
                     </div>
-                    <p className="small">{t.activity.with(f.names(sampleMates))}</p>
-                    <span className="btn btn-sm btn-block">
+                    <span className="btn btn-sm btn-block preview-confirmation">
                       <Icon name="check" size={18} /> {t.activity.imIn}
                     </span>
                   </div>
                 ) : null}
-                <div className="card card-sage" style={{ padding: 14, gap: 6 }}>
-                  <div className="row" style={{ gap: 8 }}>
-                    <Icon name="mic" size={20} />
-                    <strong className="small">{t.joy.name}</strong>
+                <div className="card card-sage preview-joy" style={{ padding: 14, gap: 6 }}>
+                  <div className="row-between">
+                    <div className="row" style={{ gap: 8 }}>
+                      <Icon name="mic" size={20} />
+                      <strong className="small">{t.joy.name}</strong>
+                    </div>
+                    <span className="preview-wave">
+                      <span />
+                      <span />
+                      <span />
+                      <span />
+                      <span />
+                    </span>
                   </div>
-                  <p className="small">“{t.joy.greeting.senior(previewSenior?.firstName ?? "") }”</p>
+                  <p className="small">{t.joy.lead}</p>
                 </div>
               </div>
             </div>
-          </div>
+            <p className="preview-caption">
+              <span />
+              {t.landing.previewCaption}
+            </p>
+          </LandingPreview>
         </section>
 
-        <section className="container stack-lg" style={{ paddingBlock: "8px 48px" }} aria-labelledby="how">
-          <h2 id="how">{t.landing.stepsTitle}</h2>
-          <ol className="feature-list" style={{ listStyle: "none", margin: 0, padding: 0 }}>
+        <div className="container">
+          <ul className="landing-benefits">
+            {(["pin", "users", "heart"] as const).map((icon, i) => (
+              <li key={icon}>
+                <span className="benefit-icon">
+                  <Icon name={icon} size={23} />
+                </span>
+                <span>{t.landing.benefits[i]}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <section id="how" className="container landing-how" aria-labelledby="how-title">
+          <div className="landing-section-head">
+            <div>
+              <p className="hand">{t.landing.stepsEyebrow}</p>
+              <h2 id="how-title">{t.landing.stepsTitle}</h2>
+            </div>
+            <p>{t.landing.stepsLead}</p>
+          </div>
+          <ol className="feature-list">
             {t.landing.steps.map((step, i) => (
               <li key={step.title} className="card feature">
-                <span className="feature-num" style={{ background: ["var(--forest)", "var(--coral-text)", "var(--navy)"][i] }}>
-                  {i + 1}
-                </span>
+                <div className="feature-top">
+                  <span className="feature-symbol">
+                    <Icon name={(["mic", "users", "heart"] as const)[i]} size={28} />
+                  </span>
+                  <span className="feature-step">{t.landing.step(i + 1)}</span>
+                </div>
                 <h3>{step.title}</h3>
                 <p className="muted">{step.text}</p>
               </li>
@@ -140,53 +179,25 @@ export default function Landing() {
           </ol>
         </section>
 
-        <section id="demo" className="container" style={{ paddingBlock: "8px 24px", scrollMarginTop: 24 }} aria-labelledby="demo-title">
-          <div className="card card-soft stack-lg" style={{ gap: 18 }}>
-            <div className="stack-sm">
-              <span className="eyebrow">{t.common.demo}</span>
-              <h2 id="demo-title">{t.landing.demoTitle}</h2>
-              <p className="muted">
-                {t.landing.demoText}{" "}
-                <strong className="strong" style={{ color: "var(--navy)" }}>
-                  {DEMO_PASSWORD}
-                </strong>
-                .
-              </p>
+        <section className="container landing-invitation" aria-labelledby="invitation-title">
+          <div className="landing-invitation-inner">
+            <div className="invitation-copy">
+              <p className="landing-eyebrow">{t.landing.forTitle}</p>
+              <h2 id="invitation-title">{t.landing.invitationTitle}</h2>
+              <p>{t.landing.invitationText}</p>
+              <ul className="landing-roles">
+                {(["senior", "family", "companion"] as const).map((role) => (
+                  <li key={role}>
+                    <Icon name="check" size={17} />
+                    {t.roles[role]}
+                  </li>
+                ))}
+              </ul>
             </div>
-            {(["senior", "companion", "family"] as Role[]).map((role) => (
-              <div key={role} className="stack">
-                <h3 className="row" style={{ gap: 8 }}>
-                  <Icon name={ROLE_STYLE[role].icon} size={20} /> {t.roles[role]}
-                </h3>
-                <div className="demo-grid">
-                  {demoUsers
-                    .filter((u) => u.role === role)
-                    .map((u) => (
-                      <button
-                        key={u.id}
-                        type="button"
-                        className="demo-profile"
-                        onClick={() => enterDemo(u.id, u.role)}
-                        aria-label={t.landing.demoEnter(u.firstName)}
-                      >
-                        <Avatar user={u} size={44} />
-                        <span className="min-0" style={{ flex: 1 }}>
-                          <span className="person-name" style={{ display: "block" }}>
-                            {u.firstName} {u.lastName}
-                          </span>
-                          <span
-                            className="muted small"
-                            style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                          >
-                            {u.email}
-                          </span>
-                        </span>
-                        <Icon name="chevronRight" size={20} className="muted" />
-                      </button>
-                    ))}
-                </div>
-              </div>
-            ))}
+            <Link href={me ? HOME_BY_ROLE[me.role] : "/signup"} className="btn">
+              {me ? t.landing.continueAs(me.firstName) : t.landing.signup}
+              <Icon name="arrowRight" size={20} />
+            </Link>
           </div>
         </section>
       </main>
@@ -194,6 +205,8 @@ export default function Landing() {
       <footer className="container landing-footer">
         <div className="row-between">
           <Logo size={28} />
+          <p className="hand">{t.common.tagline}</p>
+          <Link href="/login">{t.landing.login}</Link>
         </div>
       </footer>
     </div>

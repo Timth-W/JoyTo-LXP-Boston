@@ -13,37 +13,48 @@ export function OutingList({
   items,
   outingBase,
   linkActivities = true,
+  featured = false,
 }: {
   items: OutingItem[];
   outingBase: string;
   linkActivities?: boolean;
+  featured?: boolean;
 }) {
   const { state } = useStore();
   const { t, f } = useI18n();
   return (
-    <ul className="list card" style={{ paddingBlock: 4 }}>
+    <ul className={`list card${featured ? " outing-list-featured" : ""}`} style={featured ? undefined : { paddingBlock: 4 }}>
       {items.map((item) => {
         const date = item.date;
         if (item.kind === "activity") {
           const a = item.activity;
           const body = (
             <>
-              <span className="date-block" style={{ width: 54 }} aria-hidden="true">
-                <span className="date-day" style={{ fontSize: "1.3rem" }}>
+              <span className="date-block" style={featured ? undefined : { width: 54 }} aria-hidden="true">
+                <span className="date-day" style={featured ? undefined : { fontSize: "1.3rem" }}>
                   {toDate(date).getDate()}
                 </span>
                 <span className="date-month">{f.month(date)}</span>
               </span>
               <span className="list-body">
+                {featured ? <span className="outing-list-kind">{t.categories[a.category]}</span> : null}
                 <span className="list-title" style={{ display: "block" }}>
                   {f.text(a.title)}
                 </span>
                 <span className="muted small" style={{ display: "block" }}>
-                  {f.date(date)} · {f.text(a.place)}
+                  {f.date(date)}
+                  {featured ? (
+                    <span className="outing-list-place">
+                      <Icon name="pin" size={16} />
+                      {f.text(a.place)}
+                    </span>
+                  ) : (
+                    ` · ${f.text(a.place)}`
+                  )}
                 </span>
               </span>
-              <span className="cat-icon" aria-hidden="true">
-                <Icon name={CATEGORY_ICON[a.category]} />
+              <span className={featured ? "outing-list-arrow" : "cat-icon"} aria-hidden="true">
+                <Icon name={featured ? "chevronRight" : CATEGORY_ICON[a.category]} />
               </span>
             </>
           );
@@ -64,13 +75,14 @@ export function OutingList({
         return (
           <li key={`m-${m.id}`}>
             <Link className="list-link" href={`${outingBase}/${m.id}`}>
-              <span className="date-block" style={{ width: 54, background: "var(--coral-soft)" }} aria-hidden="true">
-                <span className="date-day" style={{ fontSize: "1.3rem" }}>
+              <span className="date-block" style={{ width: featured ? undefined : 54, background: "var(--coral-soft)" }} aria-hidden="true">
+                <span className="date-day" style={featured ? undefined : { fontSize: "1.3rem" }}>
                   {toDate(date).getDate()}
                 </span>
                 <span className="date-month">{f.month(date)}</span>
               </span>
               <span className="list-body">
+                {featured ? <span className="outing-list-kind">{t.outing.companion}</span> : null}
                 <span className="list-title" style={{ display: "block" }}>
                   {t.outingTypes[m.type]}
                 </span>

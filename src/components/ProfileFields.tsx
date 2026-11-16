@@ -66,11 +66,13 @@ export function SlotPicker({
   onChange,
   legend,
   help,
+  byDay = false,
 }: {
   value: Slot[];
   onChange: (v: Slot[]) => void;
   legend: string;
   help?: string;
+  byDay?: boolean;
 }) {
   const { t } = useI18n();
   const toggle = (slot: Slot) => onChange(value.includes(slot) ? value.filter((x) => x !== slot) : [...value, slot]);
@@ -78,33 +80,58 @@ export function SlotPicker({
     <fieldset className="field">
       <legend>{legend}</legend>
       {help ? <small>{help}</small> : null}
-      <div className="slot-grid" style={{ marginTop: 6 }}>
-        <span />
-        {WEEK_ORDER.map((d) => (
-          <span key={d} className="slot-head" title={t.days[d]}>
-            {t.daysShort[d]}
-          </span>
-        ))}
-        {MOMENTS.map((m) => (
-          <div key={m} style={{ display: "contents" }}>
-            <span className="slot-row-label">{t.moments[m]}</span>
-            {WEEK_ORDER.map((d) => {
-              const slot = `${d}-${m}` as Slot;
-              return (
-                <label key={slot} className="slot">
-                  <input
-                    type="checkbox"
-                    checked={value.includes(slot)}
-                    onChange={() => toggle(slot)}
-                    aria-label={t.slot(t.days[d], t.moments[m])}
-                  />
-                  <Icon name="check" size={18} />
-                </label>
-              );
-            })}
-          </div>
-        ))}
-      </div>
+      {byDay ? (
+        <div className="slot-day-grid">
+          {WEEK_ORDER.map((d) => (
+            <div className="slot-day-row" key={d}>
+              <span className="slot-day-label">{t.days[d]}</span>
+              {MOMENTS.map((m) => {
+                const slot = `${d}-${m}` as Slot;
+                return (
+                  <label className="slot slot-day-choice" key={slot}>
+                    <input
+                      type="checkbox"
+                      checked={value.includes(slot)}
+                      onChange={() => toggle(slot)}
+                      aria-label={t.slot(t.days[d], t.moments[m])}
+                    />
+                    <Icon name="check" size={17} />
+                    <span>{t.moments[m]}</span>
+                  </label>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="slot-grid" style={{ marginTop: 6 }}>
+          <span />
+          {WEEK_ORDER.map((d) => (
+            <span key={d} className="slot-head" title={t.days[d]}>
+              {t.daysShort[d]}
+            </span>
+          ))}
+          {MOMENTS.map((m) => (
+            <div key={m} style={{ display: "contents" }}>
+              <span className="slot-row-label">{t.moments[m]}</span>
+              {WEEK_ORDER.map((d) => {
+                const slot = `${d}-${m}` as Slot;
+                return (
+                  <label key={slot} className="slot">
+                    <input
+                      type="checkbox"
+                      checked={value.includes(slot)}
+                      onChange={() => toggle(slot)}
+                      aria-label={t.slot(t.days[d], t.moments[m])}
+                    />
+                    <Icon name="check" size={18} />
+                  </label>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
     </fieldset>
   );
 }
