@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { ConnectForm } from "@/components/FamilyLinks";
-import { JoyHero } from "@/components/joy/JoyHero";
 import { Icon } from "@/components/Icon";
 import { OutingList } from "@/components/OutingList";
 import { SeniorSwitcher } from "@/components/SeniorSwitcher";
@@ -55,7 +54,6 @@ export default function FamilyHome() {
         }
       />
       <SeniorSwitcher seniors={seniors} value={target.id} onChange={choose} />
-      <JoyHero role="family" />
 
       {iso.alert ? (
         <div className="notice notice-warn" role="status">

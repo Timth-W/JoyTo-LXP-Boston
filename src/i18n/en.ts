@@ -147,7 +147,6 @@ export const en = {
     demoTitle: "Try the demo",
     demoText: "Pick a profile to explore the app. Every demo account uses the password",
     demoEnter: (name: string) => `Continue as ${name}`,
-    footer: "Prototype built for the AI for Impact course. Every person and place is fictional.",
   },
   auth: {
     loginTitle: "Welcome back",

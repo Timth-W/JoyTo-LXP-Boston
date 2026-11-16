@@ -188,7 +188,6 @@ export default function Landing() {
       <footer className="container landing-footer">
         <div className="row-between">
           <Logo size={28} />
-          <p>{t.landing.footer}</p>
         </div>
       </footer>
     </div>

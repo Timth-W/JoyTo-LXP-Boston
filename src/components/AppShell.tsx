@@ -45,7 +45,6 @@ const NAV: Record<Role, NavItem[]> = {
   ],
   family: [
     { href: "/family", label: "home", icon: "home", exact: true, also: ["/family/outings", "/family/book"] },
-    { href: "/family/joy", label: "joy", icon: "sparkle" },
     { href: "/family/payments", label: "payments", icon: "wallet" },
     { href: "/family/profile", label: "profile", icon: "user" },
   ],

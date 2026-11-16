@@ -141,7 +141,6 @@ export const fr: Dict = {
     demoTitle: "Essayer la démo",
     demoText: "Choisissez un profil pour explorer l'application. Tous les comptes de démo ont le mot de passe",
     demoEnter: (name) => `Continuer en tant que ${name}`,
-    footer: "Prototype réalisé pour le cours AI for Impact. Toutes les personnes et tous les lieux sont fictifs.",
   },
   auth: {
     loginTitle: "Bon retour parmi nous",
