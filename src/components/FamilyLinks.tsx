@@ -7,7 +7,6 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { useI18n } from "@/i18n";
-import { linkByCode, regenerateInviteCode, unlinkFamily } from "@/lib/actions";
 import { RELATION_IDS } from "@/lib/constants";
 import { findSeniorByCode, linksOfFamily, linksOfSenior, userById } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
@@ -16,7 +15,7 @@ import { Icon } from "./Icon";
 import { CopyButton, Person } from "./ui";
 
 function LinkRow({ link, other, viewer }: { link: FamilyLink; other: User; viewer: User }) {
-  const { run } = useStore();
+  const { mutate } = useStore();
   const { t } = useI18n();
   const [confirming, setConfirming] = useState(false);
   const question = viewer.role === "senior" ? t.profile.removeConfirm(other.firstName) : t.family.unlinkConfirm(other.firstName);
@@ -28,7 +27,7 @@ function LinkRow({ link, other, viewer }: { link: FamilyLink; other: User; viewe
       {confirming ? (
         <div className="row">
           <span className="small strong">{question}</span>
-          <button type="button" className="btn btn-danger-solid btn-sm" onClick={() => run((s) => unlinkFamily(s, link.id, viewer.id))}>
+          <button type="button" className="btn btn-danger-solid btn-sm" onClick={() => void mutate("unlink-family", { linkId: link.id, byUserId: viewer.id }).catch(() => undefined)}>
             {viewer.role === "senior" ? t.profile.removeLink : t.family.unlink}
           </button>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirming(false)}>
@@ -46,7 +45,7 @@ function LinkRow({ link, other, viewer }: { link: FamilyLink; other: User; viewe
 
 /** Senior side: invite code + list of relatives. */
 export function SeniorFamilyPanel({ senior }: { senior: User }) {
-  const { state, run } = useStore();
+  const { state, mutate } = useStore();
   const { t } = useI18n();
   const links = linksOfSenior(state, senior.id);
   return (
@@ -63,7 +62,7 @@ export function SeniorFamilyPanel({ senior }: { senior: User }) {
           </span>
           <div className="row">
             <CopyButton value={senior.inviteCode ?? ""} />
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => run((s) => regenerateInviteCode(s, senior.id))}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => void mutate("regenerate-invite-code", { seniorId: senior.id }).catch(() => undefined)}>
               <Icon name="refresh" size={18} /> {t.profile.regenerate}
             </button>
           </div>
@@ -86,21 +85,25 @@ export function SeniorFamilyPanel({ senior }: { senior: User }) {
 
 /** Relative side: form to enter a code. */
 export function ConnectForm({ family, onLinked }: { family: User; onLinked?: (seniorId: string) => void }) {
-  const { state, run } = useStore();
+  const { state, mutate } = useStore();
   const { t } = useI18n();
   const [code, setCode] = useState("");
   const [relation, setRelation] = useState<Relation>("daughter");
   const [error, setError] = useState<string | null>(null);
 
-  function submit(e: FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
     if (!code.trim()) return setError(t.auth.errors.code);
     const senior = findSeniorByCode(state, code);
-    const err = run((s) => linkByCode(s, family.id, code, relation));
-    if (err) return setError(err === "alreadyLinked" ? t.auth.errors.alreadyLinked : t.auth.errors.code);
-    setError(null);
-    setCode("");
-    if (senior && onLinked) onLinked(senior.id);
+    try {
+      const err = await mutate("link-by-code", { familyId: family.id, code, relation });
+      if (err) return setError(err === "alreadyLinked" ? t.auth.errors.alreadyLinked : t.auth.errors.code);
+      setError(null);
+      setCode("");
+      if (senior && onLinked) onLinked(senior.id);
+    } catch {
+      // The shared backend notice explains the failed request.
+    }
   }
 
   return (

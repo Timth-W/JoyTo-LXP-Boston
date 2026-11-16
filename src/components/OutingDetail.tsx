@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { useI18n } from "@/i18n";
-import { acceptOffer, cancelMission, completeMission, declineOffer, rateMission } from "@/lib/actions";
 import {
   activityById,
   companionOf,
@@ -26,7 +25,7 @@ const PAYMENT_TONE: Record<PaymentStatus, StatusTone> = { authorized: "info", ca
 
 /** Detail of an accompanied outing, seen by the senior or by a relative. */
 export function OutingDetail({ missionId, viewer, backHref }: { missionId: string; viewer: User; backHref: string }) {
-  const { state, run } = useStore();
+  const { state, mutate } = useStore();
   const { t, f } = useI18n();
   const [cancelling, setCancelling] = useState(false);
   const [reason, setReason] = useState("");
@@ -57,15 +56,19 @@ export function OutingDetail({ missionId, viewer, backHref }: { missionId: strin
   const isSenior = viewer.id === m.seniorId;
   const canCancel = isSenior || viewer.id === m.payerId || viewer.id === m.bookedById;
 
-  function submitCancel(e: FormEvent) {
+  async function submitCancel(e: FormEvent) {
     e.preventDefault();
-    run((s) => cancelMission(s, mission.id, reason.trim() || t.outing.noReason));
-    setCancelling(false);
+    try {
+      await mutate("cancel-mission", { missionId: mission.id, reason: reason.trim() || t.outing.noReason });
+      setCancelling(false);
+    } catch {
+      // The shared backend notice explains the failed request.
+    }
   }
 
-  function submitRating(e: FormEvent) {
+  async function submitRating(e: FormEvent) {
     e.preventDefault();
-    run((s) => rateMission(s, mission.id, rating, review.trim()));
+    await mutate("rate-mission", { missionId: mission.id, rating, review: review.trim() }).catch(() => undefined);
   }
 
   const steps = [
@@ -175,10 +178,10 @@ export function OutingDetail({ missionId, viewer, backHref }: { missionId: strin
                     {c.bio ? <p>{f.text(c.bio)}</p> : null}
                     <Interests list={c.interests} highlight={senior?.interests} />
                     <div className="card-actions">
-                      <button type="button" className="btn btn-sm" onClick={() => run((s) => acceptOffer(s, o.id))}>
+                      <button type="button" className="btn btn-sm" onClick={() => void mutate("accept-offer", { offerId: o.id }).catch(() => undefined)}>
                         <Icon name="check" size={18} /> {t.outing.accept(c.firstName)}
                       </button>
-                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => run((s) => declineOffer(s, o.id))}>
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => void mutate("decline-offer", { offerId: o.id }).catch(() => undefined)}>
                         {t.outing.decline}
                       </button>
                     </div>
@@ -248,7 +251,7 @@ export function OutingDetail({ missionId, viewer, backHref }: { missionId: strin
         <section className="stack">
           <div className="row">
             {m.status === "confirmed" && past ? (
-              <button type="button" className="btn" onClick={() => run((s) => completeMission(s, mission.id))}>
+              <button type="button" className="btn" onClick={() => void mutate("complete-mission", { missionId: mission.id }).catch(() => undefined)}>
                 <Icon name="check" /> {t.outing.markDone}
               </button>
             ) : null}

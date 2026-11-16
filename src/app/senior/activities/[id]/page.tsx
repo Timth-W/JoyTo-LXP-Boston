@@ -5,13 +5,12 @@ import { useParams } from "next/navigation";
 import { CATEGORY_ICON, Icon } from "@/components/Icon";
 import { BackLink, Empty, Person } from "@/components/ui";
 import { useI18n } from "@/i18n";
-import { register, unregister } from "@/lib/actions";
 import { activityById, attendees, isPast, isRegistered, seatsLeft } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
 
 export default function ActivityDetail() {
   const { id } = useParams<{ id: string }>();
-  const { state, me, run } = useStore();
+  const { state, me, mutate } = useStore();
   const { t, f } = useI18n();
   if (!me) return null;
   const senior = me;
@@ -60,7 +59,7 @@ export default function ActivityDetail() {
             ) : mine ? (
               <>
                 <span className="badge badge-ok">{t.activity.registered}</span>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => run((s) => unregister(s, activity.id, senior.id))}>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => void mutate("unregister", { activityId: activity.id, seniorId: senior.id }).catch(() => undefined)}>
                   {t.activity.unregister}
                 </button>
               </>
@@ -68,7 +67,7 @@ export default function ActivityDetail() {
               <button
                 type="button"
                 className="btn btn-block-mobile"
-                onClick={() => run((s) => register(s, activity.id, senior.id, "catalogue"))}
+                onClick={() => void mutate("register", { activityId: activity.id, seniorId: senior.id, via: "catalogue" }).catch(() => undefined)}
               >
                 <Icon name="check" /> {t.activity.imIn}
               </button>

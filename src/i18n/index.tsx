@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Language system. The chosen language is kept in the browser (localStorage "joyto-locale").
+ * Language system. The chosen language is transient UI state for the current page session.
  * Usage in a screen: const { t, f, locale, setLocale } = useI18n();
  *   t.senior.hello("Marie")      → texts from the dictionaries
  *   f.date(activity.start)        → dates, prices and durations in the current language
@@ -18,7 +18,6 @@ export const LOCALES: { id: Locale; label: string }[] = [
 ];
 
 const DICTS: Record<Locale, Dict> = { en, fr };
-const STORAGE_KEY = "joyto-locale";
 
 export function makeFormatters(locale: Locale, t: Dict) {
   return {
@@ -55,26 +54,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>("en");
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved === "en" || saved === "fr") setLocaleState(saved);
-    } catch {
-      /* storage unavailable: keep English */
-    }
-  }, []);
-
-  useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
 
-  const setLocale = useCallback((next: Locale) => {
-    setLocaleState(next);
-    try {
-      localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      /* storage unavailable */
-    }
-  }, []);
+  const setLocale = useCallback((next: Locale) => setLocaleState(next), []);
 
   const value = useMemo<I18nValue>(() => {
     const t = DICTS[locale];

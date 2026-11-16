@@ -3,7 +3,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useI18n } from "@/i18n";
-import { register, unregister } from "@/lib/actions";
 import { toDate } from "@/lib/format";
 import { attendees, isPast, isRegistered, seatsLeft } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
@@ -28,7 +27,7 @@ export function ActivityCard({
   via?: "assistant" | "catalogue";
   headingLevel?: 2 | 3;
 }) {
-  const { state, run } = useStore();
+  const { state, mutate } = useStore();
   const { t, f } = useI18n();
   const going = attendees(state, activity.id);
   const left = seatsLeft(state, activity);
@@ -88,12 +87,12 @@ export function ActivityCard({
           ) : mine ? (
             <>
               <span className="badge badge-ok">{t.activity.registered}</span>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => run((s) => unregister(s, activity.id, viewer.id))}>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => void mutate("unregister", { activityId: activity.id, seniorId: viewer.id }).catch(() => undefined)}>
                 {t.activity.unregister}
               </button>
             </>
           ) : left > 0 ? (
-            <button type="button" className="btn btn-sm" onClick={() => run((s) => register(s, activity.id, viewer.id, via))}>
+            <button type="button" className="btn btn-sm" onClick={() => void mutate("register", { activityId: activity.id, seniorId: viewer.id, via }).catch(() => undefined)}>
               <Icon name="check" size={18} /> {t.activity.imIn}
             </button>
           ) : (

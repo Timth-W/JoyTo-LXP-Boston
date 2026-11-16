@@ -2,7 +2,6 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { useI18n } from "@/i18n";
-import { createMission } from "@/lib/actions";
 import { OUTING_TYPE_IDS, PRICING, SECTOR_IDS } from "@/lib/constants";
 import { addMinutes } from "@/lib/format";
 import { splitPayment } from "@/lib/pricing";
@@ -35,7 +34,7 @@ export function BookingForm({
   via: "assistant" | "manual";
   onBooked: (missionId: string) => void;
 }) {
-  const { state, run } = useStore();
+  const { state, mutate } = useStore();
   const { t, f } = useI18n();
   const futureActivities = state.activities.filter((a) => !isActivityPast(a.start));
   const initialActivity = futureActivities.find((a) => a.id === initial?.activityId);
@@ -65,7 +64,7 @@ export function BookingForm({
     }
   }
 
-  function submit(e: FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
     const errs: Errors = {};
     if (!start) errs.start = t.booking.errors.start;
@@ -76,8 +75,8 @@ export function BookingForm({
       document.getElementById(errs.start ? "bk-start" : "bk-meeting")?.focus();
       return;
     }
-    const id = run((s) =>
-      createMission(s, {
+    try {
+      const id = await mutate("create-mission", {
         seniorId: senior.id,
         bookedById: booker.id,
         payerId,
@@ -89,9 +88,11 @@ export function BookingForm({
         sector,
         meetingPoint: meetingPoint.trim(),
         via,
-      }),
-    );
-    onBooked(id);
+      });
+      onBooked(id);
+    } catch {
+      // The shared backend notice explains the failed request.
+    }
   }
 
   return (

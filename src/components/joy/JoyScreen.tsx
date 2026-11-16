@@ -35,7 +35,7 @@ const NO = / (no|nope|not now|later|something else|another|next|non|pas maintena
 const BYE = / (bye|goodbye|stop|that's all|au revoir|a bientot|arrete|c'est tout) /;
 
 export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: string }) {
-  const { state, run } = useStore();
+  const { state } = useStore();
   const { t, f, locale } = useI18n();
   const x = useMemo(() => ({ t, f, locale }), [t, f, locale]);
 

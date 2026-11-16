@@ -7,7 +7,6 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useI18n } from "@/i18n";
-import { acceptOffer, buyGiftCard, createMission, offerHelp, register } from "@/lib/actions";
 import { PRICING } from "@/lib/constants";
 import { addMinutes, toLocalIso, toDate } from "@/lib/format";
 import { isCompatible } from "@/lib/matching";
@@ -45,7 +44,7 @@ export function ProposalSheet({
   onClose: () => void;
   onConfirmed: (c: Confirmation) => void;
 }) {
-  const { state, run } = useStore();
+  const { state, mutate } = useStore();
   const { t, f, locale } = useI18n();
   const x = { t, f, locale };
   const card = proposalCard(proposal, state, viewer, x);
@@ -66,18 +65,22 @@ export function ProposalSheet({
 
   const activity = "activityId" in proposal ? activityById(state, proposal.activityId) : undefined;
 
-  function confirmJoin() {
+  async function confirmJoin() {
     if (proposal.kind !== "join" || !activity) return;
-    run((s) => register(s, activity.id, proposal.seniorId, "assistant"));
-    onConfirmed({ app: `The user signed up for "${f.text(activity.title)}".`, spoken: t.joy.ack.join(f.text(activity.title)) });
+    try {
+      await mutate("register", { activityId: activity.id, seniorId: proposal.seniorId, via: "assistant" });
+      onConfirmed({ app: `The user signed up for "${f.text(activity.title)}".`, spoken: t.joy.ack.join(f.text(activity.title)) });
+    } catch {
+      // The shared backend notice explains the failed request.
+    }
   }
 
-  function confirmBook(e: FormEvent) {
+  async function confirmBook(e: FormEvent) {
     e.preventDefault();
     if (proposal.kind !== "book" || !senior) return;
     if (!meetingPoint.trim()) return setError(t.joy.sheet.meetingError);
-    run((s) =>
-      createMission(s, {
+    try {
+      await mutate("create-mission", {
         seniorId: senior.id,
         bookedById: viewer.id,
         payerId: viewer.id,
@@ -89,9 +92,11 @@ export function ProposalSheet({
         sector: activity?.sector ?? senior.sector,
         meetingPoint: meetingPoint.trim(),
         via: "assistant",
-      }),
-    );
-    onConfirmed({ app: "The companion request was published and the payment is on hold.", spoken: t.joy.ack.book });
+      });
+      onConfirmed({ app: "The companion request was published and the payment is on hold.", spoken: t.joy.ack.book });
+    } catch {
+      // The shared backend notice explains the failed request.
+    }
   }
 
   const sheetTitle = card.title;
@@ -204,8 +209,11 @@ export function ProposalSheet({
                 type="button"
                 className="btn btn-sm"
                 onClick={() => {
-                  run((s) => acceptOffer(s, o.id));
+                  void mutate("accept-offer", { offerId: o.id })
+                    .then(() => {
                   onConfirmed({ app: `The user chose ${c.firstName} as companion.`, spoken: t.joy.ack.answer(c.firstName) });
+                    })
+                    .catch(() => undefined);
                 }}
               >
                 <Icon name="check" size={18} /> {t.joy.sheet.accept(c.firstName)}
@@ -275,8 +283,9 @@ export function ProposalSheet({
           className="btn btn-block"
           disabled={!isCompatible(state, m, viewer)}
           onClick={() => {
-            run((st) => offerHelp(st, m.id, viewer.id));
-            onConfirmed({ app: `The user offered to help ${s?.firstName ?? ""}.`, spoken: t.joy.ack.mission });
+            void mutate("offer-help", { missionId: m.id, companionId: viewer.id })
+              .then(() => onConfirmed({ app: `The user offered to help ${s?.firstName ?? ""}.`, spoken: t.joy.ack.mission }))
+              .catch(() => undefined);
           }}
         >
           <Icon name="heart" /> {t.joy.sheet.confirmMission}
@@ -297,8 +306,9 @@ export function ProposalSheet({
         type="button"
         className="btn btn-block"
         onClick={() => {
-          run((s) => buyGiftCard(s, viewer.id, senior.id));
-          onConfirmed({ app: `The user offered a gift card to ${senior.firstName}.`, spoken: t.joy.ack.gift });
+          void mutate("buy-gift-card", { buyerId: viewer.id, seniorId: senior.id })
+            .then(() => onConfirmed({ app: `The user offered a gift card to ${senior.firstName}.`, spoken: t.joy.ack.gift }))
+            .catch(() => undefined);
         }}
       >
         <Icon name="gift" /> {t.joy.sheet.confirmGift(f.money(PRICING.giftCard.priceCents))}

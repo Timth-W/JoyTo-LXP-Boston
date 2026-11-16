@@ -1,52 +1,66 @@
 "use client";
 
-/**
- * Single data store of the prototype.
- * All data lives here; every action produces a new state and every screen re-renders.
- * For the demo the data is kept in the browser (localStorage).
- * Production: replace this store with API calls to a real database (see db/schema.sql and README).
- */
+/** Client mirror of the shared server state; all persistent mutations go through the backend API. */
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { createSeed } from "./seed";
+import { STATE_VERSION } from "./constants";
+import type { BackendMutationAction, BackendMutationPayloads, BackendMutationResult } from "./backend-contract";
 import { currentUser } from "./selectors";
 import type { State, User } from "./types";
 
-const STORAGE_KEY = "joyto-state";
+function emptyState(): State {
+  return {
+    version: STATE_VERSION,
+    now: new Date().toISOString().slice(0, 16),
+    currentUserId: null,
+    users: [],
+    links: [],
+    activities: [],
+    registrations: [],
+    missions: [],
+    offers: [],
+    payments: [],
+    giftCards: [],
+    notifications: [],
+    chats: {},
+    seq: 100,
+  };
+}
 
 interface StoreValue {
   state: State;
   /** False during the first render, before the saved data is read: screens wait for it. */
   hydrated: boolean;
   me: User | undefined;
-  run: <T = void>(action: (draft: State) => T) => T;
-  replace: (next: State) => void;
-  reset: () => void;
+  requestError: boolean;
+  clearRequestError: () => void;
+  mutate: <A extends BackendMutationAction>(action: A, payload: BackendMutationPayloads[A]) => Promise<BackendMutationResult<A>>;
+  reset: () => Promise<void>;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
 
 async function load(): Promise<State | null> {
   try {
+    for (const key of ["joyto-state", "joyto-locale", "joyto-active-senior"]) localStorage.removeItem(key);
+  } catch {
+    // The database remains usable when browser storage is disabled.
+  }
+
+  try {
     const response = await fetch("/api/backend", { cache: "no-store" });
     if (!response.ok) throw new Error("Backend unavailable");
     const payload = (await response.json()) as { state?: State };
     const saved = payload.state;
-    return saved && saved.version === createSeed().version ? saved : null;
+    return saved && saved.version === STATE_VERSION ? saved : null;
   } catch {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return null;
-      const saved = JSON.parse(raw) as State;
-      return saved.version === createSeed().version ? saved : null;
-    } catch {
-      return null;
-    }
+    return null;
   }
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<State>(createSeed);
+  const [state, setState] = useState<State>(emptyState);
   const [hydrated, setHydrated] = useState(false);
+  const [requestError, setRequestError] = useState(false);
   /** Always the latest state, so that two actions in a row never work on stale data. */
   const ref = useRef(state);
 
@@ -59,56 +73,40 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     void (async () => {
       const saved = await load();
       if (saved) commit(saved);
+      else setRequestError(true);
       setHydrated(true);
     })();
   }, [commit]);
 
-  useEffect(() => {
-    if (!hydrated) return;
-
-    void fetch("/api/backend", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ state }),
-    }).catch(() => {
+  const mutate = useCallback(
+    async <A extends BackendMutationAction,>(action: A, payload: BackendMutationPayloads[A]): Promise<BackendMutationResult<A>> => {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      } catch {
-        /* storage unavailable: the demo still works for this visit */
+        const response = await fetch("/api/backend", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, payload }),
+        });
+        const result = (await response.json().catch(() => null)) as { ok?: boolean; result?: unknown; state?: State } | null;
+        if (!response.ok || !result?.ok || !result.state) throw new Error("Backend mutation failed");
+        commit(result.state);
+        setRequestError(false);
+        return result.result as BackendMutationResult<A>;
+      } catch (error) {
+        setRequestError(true);
+        throw error;
       }
-    });
-  }, [state, hydrated]);
-
-  /** Same data in other tabs: keep them in sync. */
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key !== STORAGE_KEY) return;
-      void (async () => {
-        const saved = await load();
-        if (saved) commit(saved);
-      })();
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, [commit]);
-
-  /**
-   * Runs an action on a copy of the state and returns its result synchronously
-   * (for example the id of a new outing), so a screen can navigate right after.
-   */
-  const run = useCallback(
-    <T,>(action: (draft: State) => T): T => {
-      const draft = structuredClone(ref.current);
-      const result = action(draft);
-      commit(draft);
-      return result;
     },
     [commit],
   );
 
-  const reset = useCallback(() => commit({ ...createSeed(), currentUserId: ref.current.currentUserId }), [commit]);
+  const clearRequestError = useCallback(() => setRequestError(false), []);
+  const reset = useCallback(() => mutate("reset-demo", {}), [mutate]);
 
-  return <StoreContext.Provider value={{ state, hydrated, me: currentUser(state), run, replace: commit, reset }}>{children}</StoreContext.Provider>;
+  return (
+    <StoreContext.Provider value={{ state, hydrated, me: currentUser(state), requestError, clearRequestError, mutate, reset }}>
+      {children}
+    </StoreContext.Provider>
+  );
 }
 
 export function useStore(): StoreValue {

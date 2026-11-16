@@ -10,7 +10,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, type ReactNode } from "react";
 import { useI18n } from "@/i18n";
 import type { Dict } from "@/i18n/en";
-import { logout } from "@/lib/actions";
 import { HOME_BY_ROLE } from "@/lib/constants";
 import { unreadCount } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
@@ -62,7 +61,7 @@ function isActive(path: string, item: NavItem) {
 }
 
 export function AppShell({ role, children }: { role?: Role; children: ReactNode }) {
-  const { state, hydrated, me, run, reset } = useStore();
+  const { state, hydrated, me, mutate, reset } = useStore();
   const { t } = useI18n();
   const router = useRouter();
   const path = usePathname();
@@ -104,10 +103,14 @@ export function AppShell({ role, children }: { role?: Role; children: ReactNode 
   const items = NAV[me.role];
   const unread = unreadCount(state, me.id);
 
-  function signOut(target: string) {
+  async function signOut(target: string) {
     leaving.current = true;
-    router.push(target);
-    run(logout);
+    try {
+      await mutate("logout", {});
+      router.push(target);
+    } catch {
+      leaving.current = false;
+    }
   }
 
   return (
@@ -169,7 +172,7 @@ export function AppShell({ role, children }: { role?: Role; children: ReactNode 
                   <LanguageSwitch />
                 </div>
                 <div className="menu-section">
-                  <button type="button" className="menu-item" style={{ paddingLeft: 0 }} onClick={reset}>
+                  <button type="button" className="menu-item" style={{ paddingLeft: 0 }} onClick={() => void reset().catch(() => undefined)}>
                     <Icon name="refresh" /> {t.nav.resetDemo}
                   </button>
                 </div>

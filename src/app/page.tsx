@@ -5,9 +5,8 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { Logo, LogoMark } from "@/components/Logo";
-import { Avatar } from "@/components/ui";
+import { Avatar, Loading } from "@/components/ui";
 import { useI18n } from "@/i18n";
-import { loginAsDemo } from "@/lib/actions";
 import { DEMO_PASSWORD, HOME_BY_ROLE } from "@/lib/constants";
 import { activityById, attendees } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
@@ -29,17 +28,24 @@ function Leaf({ size, style }: { size: number; style: React.CSSProperties }) {
 }
 
 export default function Landing() {
-  const { state, me, run } = useStore();
+  const { state, me, hydrated, mutate } = useStore();
   const { t, f } = useI18n();
   const router = useRouter();
 
   const demoUsers = state.users.filter((u) => u.demo);
   const sample = activityById(state, "a1");
   const sampleMates = sample ? attendees(state, sample.id).map((u) => u.firstName) : [];
+  const previewSenior = state.users.find((user) => user.role === "senior");
 
-  function enterDemo(userId: string, role: Role) {
-    run((s) => loginAsDemo(s, userId));
-    router.push(HOME_BY_ROLE[role]);
+  if (!hydrated) return <Loading />;
+
+  async function enterDemo(userId: string, role: Role) {
+    try {
+      await mutate("login-as-demo", { userId });
+      router.push(HOME_BY_ROLE[role]);
+    } catch {
+      // The shared backend notice explains the failed request.
+    }
   }
 
   return (
@@ -112,7 +118,7 @@ export default function Landing() {
                     <Icon name="mic" size={20} />
                     <strong className="small">{t.joy.name}</strong>
                   </div>
-                  <p className="small">“{t.joy.greeting.senior("Marie")}”</p>
+                  <p className="small">“{t.joy.greeting.senior(previewSenior?.firstName ?? "") }”</p>
                 </div>
               </div>
             </div>

@@ -1,5 +1,4 @@
-DROP DATABASE IF EXISTS joyto;
-CREATE DATABASE joyto CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS joyto CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE joyto;
 
 CREATE TABLE app_state (

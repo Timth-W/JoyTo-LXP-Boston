@@ -5,12 +5,11 @@ import { AppShell } from "@/components/AppShell";
 import { Icon } from "@/components/Icon";
 import { Empty, PageHead } from "@/components/ui";
 import { useI18n } from "@/i18n";
-import { markAllRead, markRead } from "@/lib/actions";
 import { notificationText } from "@/lib/notifications";
 import { useStore } from "@/lib/store";
 
 function NotificationsList() {
-  const { state, me, run } = useStore();
+  const { state, me, mutate } = useStore();
   const { t, f } = useI18n();
   if (!me) return null;
   const user = me;
@@ -26,7 +25,7 @@ function NotificationsList() {
         lead={unread ? t.notifications.unread(unread) : undefined}
         action={
           unread ? (
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => run((s) => markAllRead(s, user.id))}>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => void mutate("mark-all-read", { userId: user.id }).catch(() => undefined)}>
               <Icon name="check" size={18} /> {t.notifications.markAll}
             </button>
           ) : null
@@ -35,7 +34,7 @@ function NotificationsList() {
       {list.length ? (
         <div className="stack" style={{ maxWidth: 820 }}>
           {list.map((n) => (
-            <Link key={n.id} href={n.href} className={`notif-item${n.read ? "" : " unread"}`} onClick={() => run((s) => markRead(s, n.id))}>
+            <Link key={n.id} href={n.href} className={`notif-item${n.read ? "" : " unread"}`} onClick={() => void mutate("mark-read", { id: n.id }).catch(() => undefined)}>
               <span className={`notif-dot${n.read ? " read" : ""}`} aria-hidden="true" />
               <span className="min-0">
                 <span style={{ display: "block", fontWeight: n.read ? 600 : 800, color: "var(--navy)" }}>

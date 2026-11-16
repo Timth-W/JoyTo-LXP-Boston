@@ -7,14 +7,13 @@ import { OutingList } from "@/components/OutingList";
 import { SeniorSwitcher } from "@/components/SeniorSwitcher";
 import { Empty, PageHead, Person, useToast } from "@/components/ui";
 import { useI18n } from "@/i18n";
-import { buyGiftCard } from "@/lib/actions";
 import { PRICING } from "@/lib/constants";
 import { giftMinutesLeft, isolationStatus, linksOfFamily, upcomingOutings } from "@/lib/selectors";
 import { useActiveSenior } from "@/lib/useActiveSenior";
 import { useStore } from "@/lib/store";
 
 export default function FamilyHome() {
-  const { state, me, run } = useStore();
+  const { state, me, mutate } = useStore();
   const { t, f } = useI18n();
   const { seniors, senior, choose } = useActiveSenior();
   const [toast, showToast] = useToast();
@@ -115,8 +114,9 @@ export default function FamilyHome() {
             className="btn btn-secondary btn-sm"
             style={{ alignSelf: "flex-start" }}
             onClick={() => {
-              run((s) => buyGiftCard(s, family.id, target.id));
-              showToast(t.family.giftDone);
+              void mutate("buy-gift-card", { buyerId: family.id, seniorId: target.id })
+                .then(() => showToast(t.family.giftDone))
+                .catch(() => undefined);
             }}
           >
             {t.family.giftBuy} · {f.money(PRICING.giftCard.priceCents)}

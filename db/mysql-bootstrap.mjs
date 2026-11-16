@@ -15,6 +15,10 @@ const config = {
   multipleStatements: true,
 };
 
+if (!/^[a-zA-Z0-9_]+$/.test(config.database)) {
+  throw new Error('DB_NAME may contain only letters, numbers, and underscores.');
+}
+
 async function main() {
   const connection = await mysql.createConnection({
     host: config.host,
@@ -25,6 +29,15 @@ async function main() {
   });
 
   try {
+    const [existingTables] = await connection.execute(
+      'SELECT COUNT(*) AS count FROM information_schema.tables WHERE table_schema = ?',
+      [config.database],
+    );
+    const tableCount = Number(existingTables[0]?.count ?? 0);
+    if (tableCount > 0) {
+      throw new Error(`Database '${config.database}' already contains tables. Refusing to overwrite existing data.`);
+    }
+
     await connection.query(`CREATE DATABASE IF NOT EXISTS \`${config.database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
     await connection.query(`USE \`${config.database}\`;`);
 

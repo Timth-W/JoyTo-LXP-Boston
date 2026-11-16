@@ -1,4 +1,4 @@
-import { DEMO_NOW } from "./constants";
+import { DEMO_NOW, STATE_VERSION } from "./constants";
 import type { State, User } from "./types";
 
 /** Demo data. Every person and place is fictional. Every demo password is "demo1234". */
@@ -9,7 +9,7 @@ const demoUser = (u: Omit<User, "createdAt" | "demo">): User => ({ ...u, created
 
 export function createSeed(): State {
   return {
-    version: 3,
+    version: STATE_VERSION,
     now: DEMO_NOW,
     currentUserId: null,
     seq: 100,

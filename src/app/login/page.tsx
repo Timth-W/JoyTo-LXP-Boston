@@ -9,7 +9,6 @@ import { useI18n } from "@/i18n";
 import { hashPassword, isValidEmail } from "@/lib/auth";
 import { HOME_BY_ROLE } from "@/lib/constants";
 import { useStore } from "@/lib/store";
-import type { State, User } from "@/lib/types";
 
 /** Only internal paths are accepted after login (protection against open redirects). */
 function safeNext(): string | null {
@@ -18,7 +17,7 @@ function safeNext(): string | null {
 }
 
 export default function LoginPage() {
-  const { replace } = useStore();
+  const { mutate } = useStore();
   const { t } = useI18n();
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -33,20 +32,10 @@ export default function LoginPage() {
     setBusy(true);
     const hash = await hashPassword(email, password);
     try {
-      const response = await fetch("/api/backend", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "login", email, passwordHash: hash }),
-      });
-      const payload = (await response.json().catch(() => null)) as
-        | { state?: State; result?: { ok: boolean; user?: User } }
-        | null;
-      if (!response.ok || !payload?.result) return setError(t.auth.errors.backend);
-      if (!payload.result.ok || !payload.result.user) return setError(t.auth.errors.credentials);
-      if (!payload.state) return setError(t.auth.errors.backend);
-      replace(payload.state);
+      const result = await mutate("login", { email, passwordHash: hash });
+      if (!result.ok || !result.user) return setError(t.auth.errors.credentials);
       const next = safeNext();
-      const home = HOME_BY_ROLE[payload.result.user.role];
+      const home = HOME_BY_ROLE[result.user.role];
       router.push(next && (next.startsWith(home) || next === "/notifications") ? next : home);
     } catch {
       setError(t.auth.errors.backend);

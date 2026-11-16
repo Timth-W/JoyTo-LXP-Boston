@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { signUp } from "../actions";
-import { createBackendStore, mergeStateUsers, parseStatePayload } from "../backend";
+import { applyBackendAction, isBackendMutationAction } from "../backend-actions";
+import { createBackendStore, parseStatePayload } from "../backend";
 import { createSeed } from "../seed";
 
 const files: string[] = [];
@@ -19,29 +20,41 @@ afterEach(() => {
 });
 
 describe("server-side state store", () => {
+  it("dispatches account and activity mutations through persisted backend transactions", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "joyto-backend-flow-"));
+    const file = join(dir, "state.json");
+    files.push(file);
+
+    const store = createBackendStore(file);
+    const signup = await store.transact((draft) =>
+      applyBackendAction(draft, "signup", {
+        role: "senior",
+        email: "server-flow@test.local",
+        passwordHash: "test-hash",
+        firstName: "Server",
+        lastName: "Flow",
+        sector: "centre",
+        interests: [],
+      }),
+    );
+    expect(signup.result).toMatchObject({ ok: true });
+    if (!signup.result || typeof signup.result !== "object" || !("userId" in signup.result)) throw new Error("Signup failed");
+    const userId = String(signup.result.userId);
+
+    await store.transact((draft) => applyBackendAction(draft, "register", { activityId: "a4", seniorId: userId, via: "catalogue" }));
+    const persisted = await store.load();
+
+    expect(persisted.users.some((user) => user.id === userId)).toBe(true);
+    expect(persisted.registrations.some((registration) => registration.activityId === "a4" && registration.seniorId === userId)).toBe(true);
+    expect(isBackendMutationAction("write-state")).toBe(false);
+  });
+
   it("reads JSON payloads returned as either strings or objects", () => {
     const seed = createSeed();
 
     expect(parseStatePayload(seed)).toEqual(seed);
     expect(parseStatePayload(JSON.stringify(seed))).toEqual(seed);
-  });
-
-  it("preserves accounts missing from a stale client snapshot", () => {
-    const current = createSeed();
-    const result = signUp(current, {
-      role: "senior",
-      email: "new-user@test.local",
-      passwordHash: "test-hash",
-      firstName: "New",
-      lastName: "User",
-      sector: "centre",
-      interests: [],
-    });
-    expect(result.ok).toBe(true);
-
-    const merged = mergeStateUsers(current, createSeed());
-
-    expect(merged.users.some((user) => user.email === "new-user@test.local")).toBe(true);
+    expect(() => parseStatePayload({ version: -1 })).toThrow(/unsupported version or shape/i);
   });
 
   it("persists the app state and keeps the signup flow valid on the backend layer", async () => {
@@ -50,9 +63,6 @@ describe("server-side state store", () => {
     files.push(file);
 
     const store = createBackendStore(file);
-    const initial = createSeed();
-    await store.save(initial);
-
     const result = await store.mutate((draft) => {
       const res = signUp(draft, {
         role: "senior",
@@ -71,5 +81,32 @@ describe("server-side state store", () => {
     const persisted = await store.load();
     expect(persisted.users.some((user) => user.email === "backend@test.com")).toBe(true);
     expect(persisted.currentUserId).toBe(result.ok ? result.userId : null);
+  });
+
+  it("serializes concurrent backend mutations without losing either account", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "joyto-backend-concurrent-"));
+    const file = join(dir, "state.json");
+    files.push(file);
+
+    const store = createBackendStore(file);
+    const createAccount = (email: string) =>
+      store.transact((draft) =>
+        signUp(draft, {
+          role: "senior",
+          email,
+          passwordHash: "test-hash",
+          firstName: "Concurrent",
+          lastName: "User",
+          sector: "centre",
+          interests: [],
+        }),
+      );
+
+    const results = await Promise.all([createAccount("one@test.local"), createAccount("two@test.local")]);
+    const persisted = await store.load();
+
+    expect(results.every(({ result }) => result.ok)).toBe(true);
+    expect(new Set(results.map(({ result }) => (result.ok ? result.userId : ""))).size).toBe(2);
+    expect(persisted.users.map((user) => user.email)).toEqual(expect.arrayContaining(["one@test.local", "two@test.local"]));
   });
 });

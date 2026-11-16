@@ -7,7 +7,6 @@ import { Icon } from "@/components/Icon";
 import { Reasons } from "@/components/Reasons";
 import { BackLink, Badge, Empty, Interests, PageHead, Stars } from "@/components/ui";
 import { useI18n } from "@/i18n";
-import { companionCancel, completeMission, offerHelp, withdrawOffer } from "@/lib/actions";
 import { isCompatible, rankMissions } from "@/lib/matching";
 import { priceFor } from "@/lib/pricing";
 import { activityById, COMPANION_TONE, companionStatus, isPast, missionById, missionForCompanion } from "@/lib/selectors";
@@ -15,7 +14,7 @@ import { useStore } from "@/lib/store";
 
 export default function CompanionMissionPage() {
   const { id } = useParams<{ id: string }>();
-  const { state, me, run } = useStore();
+  const { state, me, mutate } = useStore();
   const { t, f } = useI18n();
   const [cancelling, setCancelling] = useState(false);
   const [reason, setReason] = useState("");
@@ -38,12 +37,16 @@ export default function CompanionMissionPage() {
   const price = priceFor(m.durationMin);
   const past = isPast(state, m.start);
 
-  function submitCancel(e: FormEvent) {
+  async function submitCancel(e: FormEvent) {
     e.preventDefault();
     if (!reason.trim()) return;
-    run((s) => companionCancel(s, mission.id, companion.id, reason.trim()));
-    setCancelling(false);
-    setReason("");
+    try {
+      await mutate("companion-cancel", { missionId: mission.id, companionId: companion.id, reason: reason.trim() });
+      setCancelling(false);
+      setReason("");
+    } catch {
+      // The shared backend notice explains the failed request.
+    }
   }
 
   return (
@@ -91,7 +94,7 @@ export default function CompanionMissionPage() {
           <div className="card-actions">
             {st === "available" ? (
               isCompatible(state, m, companion) ? (
-                <button type="button" className="btn btn-block-mobile" onClick={() => run((s) => offerHelp(s, mission.id, companion.id))}>
+                <button type="button" className="btn btn-block-mobile" onClick={() => void mutate("offer-help", { missionId: mission.id, companionId: companion.id }).catch(() => undefined)}>
                   <Icon name="heart" /> {t.companion.offer}
                 </button>
               ) : (
@@ -109,14 +112,14 @@ export default function CompanionMissionPage() {
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
-                  onClick={() => run((s) => withdrawOffer(s, mission.id, companion.id))}
+                  onClick={() => void mutate("withdraw-offer", { missionId: mission.id, companionId: companion.id }).catch(() => undefined)}
                 >
                   {t.companion.withdraw}
                 </button>
               </>
             ) : null}
             {st === "confirmed" && past ? (
-              <button type="button" className="btn" onClick={() => run((s) => completeMission(s, mission.id))}>
+              <button type="button" className="btn" onClick={() => void mutate("complete-mission", { missionId: mission.id }).catch(() => undefined)}>
                 <Icon name="check" /> {t.companion.complete}
               </button>
             ) : null}

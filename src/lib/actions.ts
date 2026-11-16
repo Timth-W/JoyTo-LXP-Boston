@@ -1,7 +1,6 @@
 /**
  * Business actions. Each action receives a copy of the state and changes it.
- * They are called through run() from the store (store.tsx); then every screen re-renders.
- * Production: each function becomes a server route (or a database function) with the same rules.
+ * They are dispatched by the backend API inside a store transaction.
  * Actions never write text: notifications store a type and ids, translated at display time.
  */
 import { DEMO_LATER, DEMO_NOW, PRICING } from "./constants";

@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent } from "react";
 import { useI18n } from "@/i18n";
-import { updateProfile } from "@/lib/actions";
 import { useStore } from "@/lib/store";
 import type { Category, SectorId, Slot, User } from "@/lib/types";
 import { InterestPicker, SectorPicker, SlotPicker } from "./ProfileFields";
@@ -12,7 +11,7 @@ import { Avatar, useToast } from "./ui";
 
 /** Profile editor shared by the three roles; it only shows what makes sense for each role. */
 export function ProfileForm({ user }: { user: User }) {
-  const { run } = useStore();
+  const { mutate } = useStore();
   const { t, f } = useI18n();
   const [toast, showToast] = useToast();
   const [firstName, setFirstName] = useState(user.firstName);
@@ -24,21 +23,26 @@ export function ProfileForm({ user }: { user: User }) {
   const [areas, setAreas] = useState<SectorId[]>(user.companion?.sectors ?? []);
   const [error, setError] = useState<string | null>(null);
 
-  function submit(e: FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
     if (!firstName.trim()) return setError(t.auth.errors.firstName);
     if (!lastName.trim()) return setError(t.auth.errors.lastName);
     setError(null);
-    run((s) =>
-      updateProfile(s, user.id, {
+    try {
+      await mutate("update-profile", {
+        userId: user.id,
+        patch: {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         bio: bio.trim(),
         ...(user.role !== "family" ? { sector, interests, availability } : {}),
         ...(user.role === "companion" ? { companionSectors: areas.length ? areas : [sector] } : {}),
-      }),
-    );
-    showToast(t.profile.saved);
+        },
+      });
+      showToast(t.profile.saved);
+    } catch {
+      // The shared backend notice explains the failed request.
+    }
   }
 
   return (

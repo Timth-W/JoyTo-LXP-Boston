@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeFormatters } from "@/i18n";
 import { en } from "@/i18n/en";
 import { fr } from "@/i18n/fr";
@@ -12,6 +12,13 @@ import type { State } from "../types";
 const seed = (): State => structuredClone(createSeed());
 const EN = { t: en, f: makeFormatters("en", en), locale: "en" as const };
 const FR = { t: fr, f: makeFormatters("fr", fr), locale: "fr" as const };
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-11-12T10:00:00"));
+});
+
+afterEach(() => vi.useRealTimers());
 
 describe("Joy proposals", () => {
   it("reminds Marie of tomorrow and suggests activities and a companion", () => {
