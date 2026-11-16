@@ -3892,6 +3892,249 @@ select.input {
   }
 }
 
+/* A saved outing blooms into the agenda. Native dialog keeps focus inside. */
+.outing-celebration {
+  width: min(520px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 30px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--text);
+  background: radial-gradient(ellipse at 50% 0%, var(--surface-2), transparent 65%), var(--surface);
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+.outing-celebration[open] {
+  animation: celebration-arrive 350ms ease-out both;
+}
+.outing-celebration::backdrop {
+  background: color-mix(in srgb, var(--navy) 40%, transparent);
+  animation: celebration-backdrop 250ms ease-out both;
+}
+.celebration-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: var(--muted);
+}
+.celebration-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 260px;
+  max-width: 100%;
+  height: 160px;
+  margin: 0 auto 8px;
+}
+.celebration-branch {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.celebration-stem {
+  stroke: var(--forest);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 300;
+  stroke-dashoffset: 0;
+  animation: celebration-stem 900ms 250ms both;
+}
+.celebration-leaf {
+  fill: var(--sage);
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: celebration-grow 650ms 500ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.celebration-leaf-two {
+  animation-delay: 650ms;
+}
+.celebration-leaf-three {
+  fill: var(--terracotta);
+  animation-delay: 650ms;
+}
+.celebration-leaf-four {
+  fill: var(--terracotta);
+  animation-delay: 800ms;
+}
+.celebration-flower {
+  fill: var(--coral);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: celebration-grow 650ms 1s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.celebration-flower-heart {
+  fill: var(--sun);
+}
+.celebration-check {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 104px;
+  height: 104px;
+  border: 8px solid var(--forest-soft);
+  border-radius: 50%;
+  background: var(--forest);
+  box-shadow: var(--shadow);
+  animation: celebration-check-arrive 450ms ease-out both;
+}
+.celebration-check svg {
+  width: 58px;
+  height: 58px;
+}
+.celebration-check path {
+  stroke: var(--surface);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: celebration-draw 500ms 150ms both;
+}
+.celebration-hand {
+  color: var(--forest-dark);
+  font-size: 1.6rem;
+  margin-bottom: 8px;
+}
+.outing-celebration h2 {
+  font-size: clamp(1.5rem, 5vw, 1.9rem);
+}
+.outing-celebration > p:not(.hand) {
+  color: var(--muted);
+  margin-top: 14px;
+}
+.celebration-agenda {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  margin-top: 24px;
+  overflow: hidden;
+  text-align: left;
+}
+.celebration-agenda-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  font-weight: 800;
+  color: var(--navy);
+  font-size: 0.9rem;
+}
+.celebration-agenda-label > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--forest-dark);
+}
+.celebration-entry {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  background: var(--forest-soft);
+  border-top: 1px solid var(--border);
+  animation: celebration-file 800ms 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.celebration-entry strong {
+  color: var(--navy);
+}
+.celebration-entry > span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.celebration-actions {
+  display: grid;
+  gap: 6px;
+  margin-top: 24px;
+}
+.celebration-actions .btn {
+  min-height: 52px;
+  white-space: normal;
+  padding-block: 10px;
+}
+@keyframes celebration-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes celebration-backdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes celebration-check-arrive {
+  from {
+    opacity: 0;
+    transform: scale(0.75);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes celebration-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes celebration-stem {
+  from {
+    stroke-dashoffset: 300;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes celebration-grow {
+  from {
+    opacity: 0;
+    transform: scale(0.1) rotate(-12deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+@keyframes celebration-file {
+  from {
+    opacity: 0;
+    transform: translateY(-22px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@media (max-width: 599px) {
+  .outing-celebration {
+    padding: 24px;
+  }
+  .celebration-art {
+    height: 140px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .outing-celebration[open],
+  .outing-celebration::backdrop,
+  .outing-celebration * {
+    animation: none;
+  }
+}
+
 /* Bottom sheet on phones, centred panel on larger screens */
 .sheet-backdrop {
   position: fixed;

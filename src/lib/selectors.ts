@@ -150,6 +150,35 @@ export function outingsOf(s: State, seniorId: string): OutingItem[] {
 
 export const upcomingOutings = (s: State, seniorId: string) => outingsOf(s, seniorId).filter((i) => !isPast(s, i.date));
 
+/** Transient UI feedback, derived only from changes acknowledged by the backend. */
+export type OutingConfirmation =
+  | { kind: "activity"; activityId: string; seniorId: string }
+  | { kind: "request"; missionId: string; seniorId: string };
+
+export function outingConfirmationAfter(
+  before: State,
+  after: State,
+  action: string,
+  result: unknown,
+  payload: unknown,
+): OutingConfirmation | null {
+  if (!payload || typeof payload !== "object") return null;
+  const target = payload as Record<string, unknown>;
+  if (action === "register") {
+    const added = after.registrations.find(
+      (registration) => registration.activityId === target.activityId && registration.seniorId === target.seniorId,
+    );
+    if (added && isRegistered(before, added.activityId, added.seniorId)) return null;
+    if (added && activityById(after, added.activityId)) return { kind: "activity", activityId: added.activityId, seniorId: added.seniorId };
+  }
+  if (action === "create-mission" && typeof result === "string" && !missionById(before, result)) {
+    const mission = missionById(after, result);
+    if (mission?.status === "open" && mission.seniorId === target.seniorId)
+      return { kind: "request", missionId: mission.id, seniorId: mission.seniorId };
+  }
+  return null;
+}
+
 /** For relatives: last outing, next outing, and an alert when nothing happened for a while. */
 export function isolationStatus(s: State, seniorId: string) {
   const real = outingsOf(s, seniorId).filter((i) => i.kind === "activity" || i.mission.status !== "open");

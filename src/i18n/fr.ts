@@ -494,6 +494,17 @@ export const fr: Dict = {
     removeLink: "Retirer",
     removeConfirm: (name) => `Retirer ${name} de votre famille ?`,
   },
+  celebration: {
+    eyebrow: "Un beau moment de plus",
+    joinedTitle: "Votre place vous attend !",
+    joinedDescription: "Votre inscription est confirmée. Retrouvez ce prochain beau moment dans Mes sorties.",
+    requestTitle: "Votre demande prend son envol",
+    requestDescription: "Votre demande d’accompagnement est publiée. Vous serez informé·e dès qu’une personne propose son aide.",
+    added: "Ajouté",
+    viewOutings: "Voir mes sorties",
+    viewRequest: "Voir la demande",
+    continue: "Continuer à explorer",
+  },
   notifications: {
     title: "Notifications",
     markAll: "Tout marquer comme lu",

@@ -499,6 +499,17 @@ export const en = {
     removeLink: "Remove",
     removeConfirm: (name: string) => `Remove ${name} from your family?`,
   },
+  celebration: {
+    eyebrow: "One more good moment",
+    joinedTitle: "You're in!",
+    joinedDescription: "Your place is reserved. Your next good moment is now in My outings.",
+    requestTitle: "Your request is on its way",
+    requestDescription: "Your companion request has been published. You'll be notified when someone offers to help.",
+    added: "Added",
+    viewOutings: "See my outings",
+    viewRequest: "See the request",
+    continue: "Keep exploring",
+  },
   notifications: {
     title: "Notifications",
     markAll: "Mark all as read",

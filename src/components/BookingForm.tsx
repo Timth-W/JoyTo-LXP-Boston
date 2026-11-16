@@ -48,6 +48,7 @@ export function BookingForm({
   const [note, setNote] = useState(initial?.note ?? "");
   const [payerId, setPayerId] = useState(payers.some((p) => p.id === booker.id) ? booker.id : (payers[0]?.id ?? booker.id));
   const [errors, setErrors] = useState<Errors>({});
+  const [pending, setPending] = useState(false);
 
   const gift = giftMinutesLeft(state, senior.id);
   const price = useMemo(() => splitPayment(durationMin, gift), [durationMin, gift]);
@@ -66,6 +67,7 @@ export function BookingForm({
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (pending) return;
     const errs: Errors = {};
     if (!start) errs.start = t.booking.errors.start;
     else if (isPast(state, start)) errs.start = t.booking.errors.past;
@@ -75,6 +77,7 @@ export function BookingForm({
       document.getElementById(errs.start ? "bk-start" : "bk-meeting")?.focus();
       return;
     }
+    setPending(true);
     try {
       const id = await mutate("create-mission", {
         seniorId: senior.id,
@@ -92,6 +95,8 @@ export function BookingForm({
       onBooked(id);
     } catch {
       // The shared backend notice explains the failed request.
+    } finally {
+      setPending(false);
     }
   }
 
@@ -268,7 +273,7 @@ export function BookingForm({
       </div>
 
       <div className="row">
-        <button className="btn btn-block-mobile" type="submit">
+        <button className="btn btn-block-mobile" type="submit" disabled={pending}>
           {t.booking.submit}
         </button>
       </div>

@@ -53,6 +53,7 @@ export function ProposalSheet({
   const lastMeeting = senior ? [...state.missions].reverse().find((m) => m.seniorId === senior.id)?.meetingPoint : undefined;
   const [meetingPoint, setMeetingPoint] = useState(lastMeeting ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
   useEffect(() => {
     panelRef.current?.focus();
@@ -66,19 +67,23 @@ export function ProposalSheet({
   const activity = "activityId" in proposal ? activityById(state, proposal.activityId) : undefined;
 
   async function confirmJoin() {
-    if (proposal.kind !== "join" || !activity) return;
+    if (proposal.kind !== "join" || !activity || pending) return;
+    setPending(true);
     try {
       await mutate("register", { activityId: activity.id, seniorId: proposal.seniorId, via: "assistant" });
       onConfirmed({ app: `The user signed up for "${f.text(activity.title)}".`, spoken: t.joy.ack.join(f.text(activity.title)) });
     } catch {
       // The shared backend notice explains the failed request.
+    } finally {
+      setPending(false);
     }
   }
 
   async function confirmBook(e: FormEvent) {
     e.preventDefault();
-    if (proposal.kind !== "book" || !senior) return;
+    if (proposal.kind !== "book" || !senior || pending) return;
     if (!meetingPoint.trim()) return setError(t.joy.sheet.meetingError);
+    setPending(true);
     try {
       await mutate("create-mission", {
         seniorId: senior.id,
@@ -96,6 +101,8 @@ export function ProposalSheet({
       onConfirmed({ app: "The companion request was published and the payment is on hold.", spoken: t.joy.ack.book });
     } catch {
       // The shared backend notice explains the failed request.
+    } finally {
+      setPending(false);
     }
   }
 
@@ -131,7 +138,7 @@ export function ProposalSheet({
     actions = done ? (
       <span className="badge badge-ok">{t.activity.registered}</span>
     ) : (
-      <button type="button" className="btn btn-block" onClick={confirmJoin} disabled={seatsLeft(state, activity) <= 0}>
+      <button type="button" className="btn btn-block" onClick={confirmJoin} disabled={pending || seatsLeft(state, activity) <= 0}>
         <Icon name="check" /> {t.joy.sheet.confirmJoin}
       </button>
     );
@@ -185,7 +192,7 @@ export function ProposalSheet({
       </form>
     );
     actions = (
-      <button type="submit" form="joy-book" className="btn btn-block">
+      <button type="submit" form="joy-book" className="btn btn-block" disabled={pending}>
         <Icon name="check" /> {t.joy.sheet.confirmBook}
       </button>
     );
@@ -211,7 +218,7 @@ export function ProposalSheet({
                 onClick={() => {
                   void mutate("accept-offer", { offerId: o.id })
                     .then(() => {
-                  onConfirmed({ app: `The user chose ${c.firstName} as companion.`, spoken: t.joy.ack.answer(c.firstName) });
+                      onConfirmed({ app: `The user chose ${c.firstName} as companion.`, spoken: t.joy.ack.answer(c.firstName) });
                     })
                     .catch(() => undefined);
                 }}

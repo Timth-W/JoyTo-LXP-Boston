@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useI18n } from "@/i18n";
 import { toDate } from "@/lib/format";
 import { attendees, isPast, isRegistered, seatsLeft } from "@/lib/selectors";
@@ -31,12 +31,25 @@ export function ActivityCard({
 }) {
   const { state, mutate } = useStore();
   const { t, f } = useI18n();
+  const [pending, setPending] = useState(false);
   const going = attendees(state, activity.id);
   const left = seatsLeft(state, activity);
   const past = isPast(state, activity.start);
   const mine = viewer ? isRegistered(state, activity.id, viewer.id) : false;
   const others = going.filter((u) => u.id !== viewer?.id);
   const Heading = headingLevel === 2 ? "h2" : "h3";
+  async function updateRegistration(action: "register" | "unregister") {
+    if (!viewer || pending) return;
+    setPending(true);
+    try {
+      if (action === "register") await mutate("register", { activityId: activity.id, seniorId: viewer.id, via });
+      else await mutate("unregister", { activityId: activity.id, seniorId: viewer.id });
+    } catch {
+      // The shared backend notice explains failed requests.
+    } finally {
+      setPending(false);
+    }
+  }
   const metadata = (
     <div className="meta">
       <span>
@@ -104,17 +117,14 @@ export function ActivityCard({
               <button
                 type="button"
                 className="btn btn-ghost btn-sm"
-                onClick={() => void mutate("unregister", { activityId: activity.id, seniorId: viewer.id }).catch(() => undefined)}
+                disabled={pending}
+                onClick={() => void updateRegistration("unregister")}
               >
                 {t.activity.unregister}
               </button>
             </>
           ) : left > 0 ? (
-            <button
-              type="button"
-              className="btn btn-sm"
-              onClick={() => void mutate("register", { activityId: activity.id, seniorId: viewer.id, via }).catch(() => undefined)}
-            >
+            <button type="button" className="btn btn-sm" disabled={pending} onClick={() => void updateRegistration("register")}>
               <Icon name="check" size={18} /> {t.activity.imIn}
             </button>
           ) : (

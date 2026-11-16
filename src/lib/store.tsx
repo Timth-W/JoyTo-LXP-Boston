@@ -4,7 +4,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { STATE_VERSION } from "./constants";
 import type { BackendMutationAction, BackendMutationPayloads, BackendMutationResult } from "./backend-contract";
-import { currentUser } from "./selectors";
+import { currentUser, outingConfirmationAfter, type OutingConfirmation } from "./selectors";
 import type { State, User } from "./types";
 
 function emptyState(): State {
@@ -33,6 +33,8 @@ interface StoreValue {
   me: User | undefined;
   requestError: boolean;
   clearRequestError: () => void;
+  outingConfirmation: OutingConfirmation | null;
+  dismissOutingConfirmation: () => void;
   mutate: <A extends BackendMutationAction>(action: A, payload: BackendMutationPayloads[A]) => Promise<BackendMutationResult<A>>;
   reset: () => Promise<void>;
 }
@@ -61,6 +63,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State>(emptyState);
   const [hydrated, setHydrated] = useState(false);
   const [requestError, setRequestError] = useState(false);
+  const [outingConfirmation, setOutingConfirmation] = useState<OutingConfirmation | null>(null);
   /** Always the latest state, so that two actions in a row never work on stale data. */
   const ref = useRef(state);
 
@@ -79,7 +82,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [commit]);
 
   const mutate = useCallback(
-    async <A extends BackendMutationAction,>(action: A, payload: BackendMutationPayloads[A]): Promise<BackendMutationResult<A>> => {
+    async <A extends BackendMutationAction>(action: A, payload: BackendMutationPayloads[A]): Promise<BackendMutationResult<A>> => {
       try {
         const response = await fetch("/api/backend", {
           method: "POST",
@@ -88,7 +91,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
         const result = (await response.json().catch(() => null)) as { ok?: boolean; result?: unknown; state?: State } | null;
         if (!response.ok || !result?.ok || !result.state) throw new Error("Backend mutation failed");
+        const confirmation = outingConfirmationAfter(ref.current, result.state, action, result.result, payload);
         commit(result.state);
+        if (confirmation) setOutingConfirmation(confirmation);
+        else if (action === "logout" || action === "reset-demo") setOutingConfirmation(null);
         setRequestError(false);
         return result.result as BackendMutationResult<A>;
       } catch (error) {
@@ -100,10 +106,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const clearRequestError = useCallback(() => setRequestError(false), []);
+  const dismissOutingConfirmation = useCallback(() => setOutingConfirmation(null), []);
   const reset = useCallback(() => mutate("reset-demo", {}), [mutate]);
 
   return (
-    <StoreContext.Provider value={{ state, hydrated, me: currentUser(state), requestError, clearRequestError, mutate, reset }}>
+    <StoreContext.Provider
+      value={{
+        state,
+        hydrated,
+        me: currentUser(state),
+        requestError,
+        clearRequestError,
+        outingConfirmation,
+        dismissOutingConfirmation,
+        mutate,
+        reset,
+      }}
+    >
       {children}
     </StoreContext.Provider>
   );

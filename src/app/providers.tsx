@@ -6,6 +6,7 @@ import { StoreProvider } from "@/lib/store";
 import { useI18n } from "@/i18n";
 import { useStore } from "@/lib/store";
 import { Icon } from "@/components/Icon";
+import { OutingCelebration } from "@/components/OutingCelebration";
 
 function BackendRequestNotice() {
   const { requestError, clearRequestError } = useStore();
@@ -29,6 +30,7 @@ export function Providers({ children }: { children: ReactNode }) {
       <StoreProvider>
         <BackendRequestNotice />
         {children}
+        <OutingCelebration />
       </StoreProvider>
     </I18nProvider>
   );
