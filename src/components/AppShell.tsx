@@ -10,8 +10,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, type ReactNode } from "react";
 import { useI18n } from "@/i18n";
 import type { Dict } from "@/i18n/en";
-import { logout, toggleDemoTime } from "@/lib/actions";
-import { DEMO_NOW, HOME_BY_ROLE } from "@/lib/constants";
+import { logout } from "@/lib/actions";
+import { HOME_BY_ROLE } from "@/lib/constants";
 import { unreadCount } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
 import type { Role } from "@/lib/types";
@@ -170,16 +170,6 @@ export function AppShell({ role, children }: { role?: Role; children: ReactNode 
                   <LanguageSwitch />
                 </div>
                 <div className="menu-section">
-                  <div className="menu-label">{t.nav.demoClock}</div>
-                  <button type="button" className="menu-item" style={{ paddingLeft: 0 }} onClick={() => run(toggleDemoTime)}>
-                    <Icon name="clock" />
-                    <span>
-                      {state.now === DEMO_NOW ? t.nav.demoClockNow : t.nav.demoClockLater}
-                      <span className="muted small" style={{ display: "block", fontWeight: 600 }}>
-                        {t.nav.demoClockHelp}
-                      </span>
-                    </span>
-                  </button>
                   <button type="button" className="menu-item" style={{ paddingLeft: 0 }} onClick={reset}>
                     <Icon name="refresh" /> {t.nav.resetDemo}
                   </button>

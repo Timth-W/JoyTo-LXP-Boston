@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { ActivityCard } from "@/components/ActivityCard";
 import { Icon } from "@/components/Icon";
 import { JoyHero } from "@/components/joy/JoyHero";
@@ -9,10 +10,17 @@ import { useI18n } from "@/i18n";
 import { rankActivities } from "@/lib/matching";
 import { pendingOffers, upcomingOutings, userById } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
+import { toLocalIso } from "@/lib/format";
 
 export default function SeniorHome() {
   const { state, me } = useStore();
   const { t, f } = useI18n();
+  const [today, setToday] = useState(state.now);
+
+  useEffect(() => {
+    setToday(toLocalIso(new Date()));
+  }, []);
+
   if (!me) return null;
 
   const next = upcomingOutings(state, me.id).slice(0, 1);
@@ -22,7 +30,7 @@ export default function SeniorHome() {
   return (
     <div className="stack-lg">
       <header className="stack-sm">
-        <span className="eyebrow">{f.day(state.now)}</span>
+        <span className="eyebrow">{f.day(today)}</span>
         <h1>{t.senior.hello(me.firstName)}</h1>
       </header>
 
