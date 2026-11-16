@@ -1,3 +1,4 @@
+# Local project settings and generated files
 node_modules
 .next
 out
