@@ -7,11 +7,10 @@ import { AuthFrame } from "@/components/AuthFrame";
 import { Icon } from "@/components/Icon";
 import { InterestPicker, SectorPicker } from "@/components/ProfileFields";
 import { useI18n } from "@/i18n";
-import { signUp } from "@/lib/actions";
 import { hashPassword, isValidEmail, isValidPassword } from "@/lib/auth";
 import { HOME_BY_ROLE, RELATION_IDS } from "@/lib/constants";
 import { useStore } from "@/lib/store";
-import type { Category, Relation, Role, SectorId } from "@/lib/types";
+import type { Category, Relation, Role, SectorId, State } from "@/lib/types";
 
 const ROLES: { id: Role; icon: "bench" | "heart" | "users"; bg: string; fg: string }[] = [
   { id: "senior", icon: "bench", bg: "var(--sage-soft)", fg: "#2c4a35" },
@@ -22,7 +21,7 @@ const ROLES: { id: Role; icon: "bench" | "heart" | "users"; bg: string; fg: stri
 type Errors = Partial<Record<"firstName" | "lastName" | "email" | "password" | "consent" | "inviteCode", string>>;
 
 export default function SignupPage() {
-  const { run } = useStore();
+  const { replace } = useStore();
   const { t } = useI18n();
   const router = useRouter();
 
@@ -55,26 +54,46 @@ export default function SignupPage() {
 
     setBusy(true);
     const passwordHash = await hashPassword(email, password);
-    const result = run((s) =>
-      signUp(s, {
-        role,
-        email,
-        passwordHash,
-        firstName,
-        lastName,
-        sector,
-        interests: role === "family" ? [] : interests,
-        inviteCode: role === "family" && inviteCode.trim() ? inviteCode : undefined,
-        relation,
-      }),
-    );
-    setBusy(false);
-    if (!result.ok) {
-      if (result.error === "emailTaken") setErrors({ email: t.auth.errors.emailTaken });
-      else if (result.error === "code") setErrors({ inviteCode: t.auth.errors.code });
-      return;
+    try {
+      const response = await fetch("/api/backend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "signup",
+          role,
+          email,
+          passwordHash,
+          firstName,
+          lastName,
+          sector,
+          interests: role === "family" ? [] : interests,
+          inviteCode: role === "family" && inviteCode.trim() ? inviteCode : undefined,
+          relation,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { state?: State; result?: { ok: boolean; error?: string } }
+        | null;
+      if (!response.ok || !payload?.result) {
+        setErrors({ email: t.auth.errors.backend });
+        return;
+      }
+      if (!payload.result.ok) {
+        if (payload.result.error === "emailTaken") setErrors({ email: t.auth.errors.emailTaken });
+        else if (payload.result.error === "code") setErrors({ inviteCode: t.auth.errors.code });
+        return;
+      }
+      if (!payload.state) {
+        setErrors({ email: t.auth.errors.backend });
+        return;
+      }
+      replace(payload.state);
+      router.push(HOME_BY_ROLE[role]);
+    } catch {
+      setErrors({ email: t.auth.errors.backend });
+    } finally {
+      setBusy(false);
     }
-    router.push(HOME_BY_ROLE[role]);
   }
 
   if (!role) {

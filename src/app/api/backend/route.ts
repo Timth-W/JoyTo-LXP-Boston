@@ -13,6 +13,12 @@ export async function POST(request: NextRequest) {
   const action = String(body.action ?? "");
   const store = appStateStore;
 
+  if (body.state && typeof body.state === "object") {
+    const state = body.state as State;
+    const saved = await store.save(state);
+    return NextResponse.json({ ok: true, state: saved, summary: stateSummary(saved) });
+  }
+
   if (!action) {
     return NextResponse.json({ ok: false, error: "Missing action" }, { status: 400 });
   }
@@ -26,7 +32,7 @@ export async function POST(request: NextRequest) {
         const passwordHash = String((body.passwordHash ?? "") as string);
         const result = login(state, email, passwordHash);
         await store.save(state);
-        return NextResponse.json({ ok: true, result, summary: stateSummary(state) });
+        return NextResponse.json({ ok: true, result, state, summary: stateSummary(state) });
       }
 
       case "signup": {
@@ -42,7 +48,7 @@ export async function POST(request: NextRequest) {
           relation: body.relation ? (String(body.relation) as any) : undefined,
         });
         await store.save(state);
-        return NextResponse.json({ ok: true, result, summary: stateSummary(state) });
+        return NextResponse.json({ ok: true, result, state, summary: stateSummary(state) });
       }
 
       case "create-mission": {

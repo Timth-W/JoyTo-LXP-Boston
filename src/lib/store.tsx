@@ -19,19 +19,28 @@ interface StoreValue {
   hydrated: boolean;
   me: User | undefined;
   run: <T = void>(action: (draft: State) => T) => T;
+  replace: (next: State) => void;
   reset: () => void;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
 
-function load(): State | null {
+async function load(): Promise<State | null> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const saved = JSON.parse(raw) as State;
-    return saved.version === createSeed().version ? saved : null;
+    const response = await fetch("/api/backend", { cache: "no-store" });
+    if (!response.ok) throw new Error("Backend unavailable");
+    const payload = (await response.json()) as { state?: State };
+    const saved = payload.state;
+    return saved && saved.version === createSeed().version ? saved : null;
   } catch {
-    return null;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      const saved = JSON.parse(raw) as State;
+      return saved.version === createSeed().version ? saved : null;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -47,26 +56,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const saved = load();
-    if (saved) commit(saved);
-    setHydrated(true);
+    void (async () => {
+      const saved = await load();
+      if (saved) commit(saved);
+      setHydrated(true);
+    })();
   }, [commit]);
 
   useEffect(() => {
     if (!hydrated) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      /* storage unavailable: the demo still works for this visit */
-    }
+
+    void fetch("/api/backend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ state }),
+    }).catch(() => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch {
+        /* storage unavailable: the demo still works for this visit */
+      }
+    });
   }, [state, hydrated]);
 
   /** Same data in other tabs: keep them in sync. */
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key !== STORAGE_KEY) return;
-      const saved = load();
-      if (saved) commit(saved);
+      void (async () => {
+        const saved = await load();
+        if (saved) commit(saved);
+      })();
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
@@ -88,7 +108,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const reset = useCallback(() => commit({ ...createSeed(), currentUserId: ref.current.currentUserId }), [commit]);
 
-  return <StoreContext.Provider value={{ state, hydrated, me: currentUser(state), run, reset }}>{children}</StoreContext.Provider>;
+  return <StoreContext.Provider value={{ state, hydrated, me: currentUser(state), run, replace: commit, reset }}>{children}</StoreContext.Provider>;
 }
 
 export function useStore(): StoreValue {

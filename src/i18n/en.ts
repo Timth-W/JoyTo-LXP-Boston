@@ -181,6 +181,7 @@ export const en = {
       password: "The password must have at least 8 characters.",
       emailTaken: "An account already exists with this email.",
       credentials: "Wrong email or password.",
+      backend: "We couldn't reach the account service. Please try again.",
       firstName: "Enter your first name.",
       lastName: "Enter your last name.",
       consent: "Please accept the terms to continue.",

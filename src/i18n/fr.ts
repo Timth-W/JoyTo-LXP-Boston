@@ -175,6 +175,7 @@ export const fr: Dict = {
       password: "Le mot de passe doit contenir au moins 8 caractères.",
       emailTaken: "Un compte existe déjà avec cette adresse.",
       credentials: "Adresse e-mail ou mot de passe incorrect.",
+      backend: "Le service de compte est inaccessible. Réessayez dans un instant.",
       firstName: "Saisissez votre prénom.",
       lastName: "Saisissez votre nom.",
       consent: "Merci d'accepter les conditions pour continuer.",

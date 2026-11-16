@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { signUp } from "../actions";
-import { createBackendStore } from "../backend";
+import { createBackendStore, mergeStateUsers, parseStatePayload } from "../backend";
 import { createSeed } from "../seed";
 
 const files: string[] = [];
@@ -19,6 +19,31 @@ afterEach(() => {
 });
 
 describe("server-side state store", () => {
+  it("reads JSON payloads returned as either strings or objects", () => {
+    const seed = createSeed();
+
+    expect(parseStatePayload(seed)).toEqual(seed);
+    expect(parseStatePayload(JSON.stringify(seed))).toEqual(seed);
+  });
+
+  it("preserves accounts missing from a stale client snapshot", () => {
+    const current = createSeed();
+    const result = signUp(current, {
+      role: "senior",
+      email: "new-user@test.local",
+      passwordHash: "test-hash",
+      firstName: "New",
+      lastName: "User",
+      sector: "centre",
+      interests: [],
+    });
+    expect(result.ok).toBe(true);
+
+    const merged = mergeStateUsers(current, createSeed());
+
+    expect(merged.users.some((user) => user.email === "new-user@test.local")).toBe(true);
+  });
+
   it("persists the app state and keeps the signup flow valid on the backend layer", async () => {
     const dir = mkdtempSync(join(tmpdir(), "joyto-backend-"));
     const file = join(dir, "state.json");
