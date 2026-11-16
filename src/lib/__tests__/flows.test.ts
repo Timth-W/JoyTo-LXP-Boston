@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   acceptOffer,
   cancelMission,
@@ -14,9 +14,9 @@ import {
   unlinkFamily,
 } from "../actions";
 import { generateInviteCode, normalizeInviteCode } from "../auth";
-import { isCompatible, rankActivities, rankMissions } from "../matching";
+import { eligibleActivities, isCompatible, rankActivities, rankMissions } from "../matching";
 import { createSeed } from "../seed";
-import { familyOf, giftMinutesLeft, missionForCompanion, paymentFor, seniorsOf, userById } from "../selectors";
+import { familyOf, giftMinutesLeft, isPastAt, missionForCompanion, paymentFor, seniorsOf, userById } from "../selectors";
 import type { State } from "../types";
 
 const seed = (): State => structuredClone(createSeed());
@@ -96,6 +96,32 @@ describe("accounts", () => {
 });
 
 describe("matching", () => {
+  it("moves an outing to past once its scheduled start is reached", () => {
+    const now = new Date("2026-11-16T12:00:00");
+
+    expect(isPastAt("2026-11-13T17:00", now)).toBe(true);
+    expect(isPastAt("2026-11-16T12:00", now)).toBe(false);
+    expect(isPastAt("2026-11-17T10:00", now)).toBe(false);
+  });
+
+  it("does not offer activities that have already started in real time", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-16T12:00:00"));
+    try {
+      const s = seed();
+      const marie = userById(s, "u-marie")!;
+      const eligibleIds = eligibleActivities(s, marie).map((activity) => activity.id);
+
+      expect(eligibleIds).not.toContain("a2");
+      expect(eligibleIds).not.toContain("a1");
+      expect(eligibleIds).not.toContain("a3");
+      expect(eligibleIds).not.toContain("a10");
+      expect(eligibleIds).toContain("a4");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("only suggests future activities with seats, Marie gets gardening first", () => {
     const s = seed();
     const marie = userById(s, "u-marie")!;

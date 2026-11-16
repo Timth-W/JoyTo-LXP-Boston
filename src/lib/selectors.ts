@@ -38,7 +38,9 @@ export const payersFor = (s: State, seniorId: string): User[] => {
 
 export const activityById = (s: State, id: string | null | undefined): Activity | undefined =>
   id ? s.activities.find((a) => a.id === id) : undefined;
-export const isPast = (s: State, iso: string) => toDate(iso).getTime() < toDate(s.now).getTime();
+export const isPastAt = (iso: string, now: Date) => toDate(iso).getTime() < now.getTime();
+export const isPast = (s: State, iso: string) => isPastAt(iso, toDate(s.now));
+export const isActivityPast = (iso: string) => isPastAt(iso, new Date());
 export const registrationsFor = (s: State, activityId: string) => s.registrations.filter((r) => r.activityId === activityId);
 export const seatsLeft = (s: State, a: Activity) => a.capacity - registrationsFor(s, a.id).length;
 export const isRegistered = (s: State, activityId: string, seniorId: string) =>

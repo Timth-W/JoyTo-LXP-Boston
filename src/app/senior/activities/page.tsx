@@ -7,7 +7,7 @@ import { CATEGORY_ICON, Icon } from "@/components/Icon";
 import { Empty, PageHead } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import { CATEGORY_IDS } from "@/lib/constants";
-import { isPast } from "@/lib/selectors";
+import { isActivityPast } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
 import type { Category } from "@/lib/types";
 
@@ -19,7 +19,7 @@ export default function ActivitiesPage() {
   if (!me) return null;
 
   const list = state.activities
-    .filter((a) => !isPast(state, a.start))
+    .filter((a) => !isActivityPast(a.start))
     .filter((a) => category === "all" || a.category === category)
     .sort((a, b) => a.start.localeCompare(b.start));
 

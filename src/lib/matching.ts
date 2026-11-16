@@ -6,7 +6,7 @@
  * Reasons are returned as translatable descriptors, rendered in the viewer's language.
  */
 import { slotOf, dayKey } from "./format";
-import { activityById, attendees, isPast, isRegistered, seatsLeft, userById } from "./selectors";
+import { activityById, attendees, isActivityPast, isPast, isRegistered, seatsLeft, userById } from "./selectors";
 import type { Activity, Category, Intent, Mission, SectorId, Slot, State, User } from "./types";
 
 export type Reason =
@@ -26,7 +26,7 @@ export interface Ranked<T> {
 
 /** Activities a senior can actually join (hard filters). */
 export function eligibleActivities(s: State, senior: User): Activity[] {
-  return s.activities.filter((a) => !isPast(s, a.start) && seatsLeft(s, a) > 0 && !isRegistered(s, a.id, senior.id));
+  return s.activities.filter((a) => !isActivityPast(a.start) && seatsLeft(s, a) > 0 && !isRegistered(s, a.id, senior.id));
 }
 
 export function rankActivities(s: State, senior: User, intent?: Intent, limit = 3): Ranked<Activity>[] {

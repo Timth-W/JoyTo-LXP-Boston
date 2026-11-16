@@ -1,20 +1,28 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { OutingList } from "@/components/OutingList";
 import { Empty, PageHead } from "@/components/ui";
 import { useI18n } from "@/i18n";
-import { isPast, outingsOf } from "@/lib/selectors";
+import { isPastAt, outingsOf } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
 
 export default function OutingsPage() {
   const { state, me } = useStore();
   const { t } = useI18n();
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   if (!me) return null;
   const all = outingsOf(state, me.id);
-  const upcoming = all.filter((i) => !isPast(state, i.date));
-  const past = all.filter((i) => isPast(state, i.date)).reverse();
+  const upcoming = all.filter((i) => !isPastAt(i.date, now));
+  const past = all.filter((i) => isPastAt(i.date, now)).reverse();
 
   return (
     <div className="stack-lg">

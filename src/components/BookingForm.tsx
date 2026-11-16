@@ -6,7 +6,7 @@ import { createMission } from "@/lib/actions";
 import { OUTING_TYPE_IDS, PRICING, SECTOR_IDS } from "@/lib/constants";
 import { addMinutes } from "@/lib/format";
 import { splitPayment } from "@/lib/pricing";
-import { giftMinutesLeft, isPast, userById } from "@/lib/selectors";
+import { giftMinutesLeft, isActivityPast, isPast, userById } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
 import type { Draft, OutingType, SectorId, User } from "@/lib/types";
 import { Icon } from "./Icon";
@@ -37,7 +37,7 @@ export function BookingForm({
 }) {
   const { state, run } = useStore();
   const { t, f } = useI18n();
-  const futureActivities = state.activities.filter((a) => !isPast(state, a.start));
+  const futureActivities = state.activities.filter((a) => !isActivityPast(a.start));
   const initialActivity = futureActivities.find((a) => a.id === initial?.activityId);
 
   const [activityId, setActivityId] = useState(initialActivity?.id ?? "");
