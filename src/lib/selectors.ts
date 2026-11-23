@@ -5,7 +5,7 @@
 import { NO_OUTING_ALERT_DAYS } from "./constants";
 import { normalizeEmail, normalizeInviteCode } from "./auth";
 import { daysBetween, toDate, tx } from "./format";
-import type { Activity, Category, FamilyLink, Locale, Mission, Offer, State, User } from "./types";
+import type { Activity, Category, FamilyLink, Locale, Mission, Offer, Role, State, User } from "./types";
 
 /* ---------- Users and links ---------- */
 
@@ -78,6 +78,22 @@ export const paymentFor = (s: State, missionId: string) => s.payments.find((p) =
 export const giftMinutesLeft = (s: State, seniorId: string) =>
   s.giftCards.filter((g) => g.seniorId === seniorId).reduce((sum, g) => sum + g.minutesLeft, 0);
 
+export const defaultAutoAcceptVerifiedCompanion = (role: Role | undefined) => role === "family";
+
+export function visitReportFor(s: State, m: Mission, viewer: User | undefined) {
+  if (!viewer || !m.visitReport?.sharedAt) return undefined;
+  if (viewer.role === "senior" && viewer.id === m.seniorId && m.visitReport.shareReportWithSenior) return m.visitReport;
+  if (viewer.role === "family" && isLinked(s, m.seniorId, viewer.id)) return m.visitReport;
+  if (viewer.role === "companion" && acceptedOffer(s, m.id)?.companionId === viewer.id) return m.visitReport;
+}
+
+export function companionEarningsMissions(s: State, companionId: string) {
+  return s.missions.filter((m) => {
+    if (acceptedOffer(s, m.id)?.companionId !== companionId) return false;
+    return m.status === "confirmed" || m.status === "done" || (m.lateCancel === true && paymentFor(s, m.id)?.status === "captured");
+  });
+}
+
 export type StatusTone = "info" | "ok" | "warn" | "danger" | "neutral";
 
 /** Status of an outing seen by the senior or a relative. */
@@ -126,6 +142,7 @@ export function missionForCompanion(s: State, m: Mission, companionId: string) {
   const unlocked = st === "confirmed" || st === "done";
   return {
     ...m,
+    visitReport: visitReportFor(s, m, userById(s, companionId)),
     seniorFirstName: senior?.firstName ?? "",
     seniorInterests: senior?.interests ?? [],
     seniorLastName: unlocked ? (senior?.lastName ?? "") : null,

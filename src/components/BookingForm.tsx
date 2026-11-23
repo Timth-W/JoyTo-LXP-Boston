@@ -5,7 +5,7 @@ import { useI18n } from "@/i18n";
 import { OUTING_TYPE_IDS, PRICING, SECTOR_IDS } from "@/lib/constants";
 import { addMinutes } from "@/lib/format";
 import { splitPayment } from "@/lib/pricing";
-import { giftMinutesLeft, isActivityPast, isPast, userById } from "@/lib/selectors";
+import { defaultAutoAcceptVerifiedCompanion, giftMinutesLeft, isActivityPast, isPast, userById } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
 import type { Draft, OutingType, SectorId, User } from "@/lib/types";
 import { Icon } from "./Icon";
@@ -46,6 +46,7 @@ export function BookingForm({
   const [sector, setSector] = useState<SectorId>(initialActivity?.sector ?? senior.sector);
   const [meetingPoint, setMeetingPoint] = useState("");
   const [note, setNote] = useState(initial?.note ?? "");
+  const [autoAccept, setAutoAccept] = useState(() => defaultAutoAcceptVerifiedCompanion(booker.role));
   const [payerId, setPayerId] = useState(payers.some((p) => p.id === booker.id) ? booker.id : (payers[0]?.id ?? booker.id));
   const [errors, setErrors] = useState<Errors>({});
   const [pending, setPending] = useState(false);
@@ -91,6 +92,7 @@ export function BookingForm({
         sector,
         meetingPoint: meetingPoint.trim(),
         via,
+        autoAcceptVerifiedCompanion: autoAccept,
       });
       onBooked(id);
     } catch {
@@ -252,6 +254,11 @@ export function BookingForm({
         </fieldset>
       ) : null}
 
+      <label className="checkbox">
+        <input type="checkbox" checked={autoAccept} onChange={(event) => setAutoAccept(event.target.checked)} />
+        {t.booking.autoAcceptVerified}
+      </label>
+
       <div className="price-box" aria-live="polite">
         <div className="price-line">
           <span>{t.booking.priceLine(f.duration(price.billedMinutes), f.money(PRICING.hourlyCents))}</span>
@@ -269,7 +276,7 @@ export function BookingForm({
           <span>{payer && payer.id !== booker.id ? t.booking.toPayBy(payer.firstName) : t.booking.toPay}</span>
           <span>{f.money(price.cardCents)}</span>
         </div>
-        <p className="muted small">{t.booking.priceNote}</p>
+        <p className="muted small">{t.booking.priceNote} {t.booking.cancellationPolicy}</p>
       </div>
 
       <div className="row">

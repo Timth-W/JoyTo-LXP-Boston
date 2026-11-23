@@ -14,6 +14,7 @@ import {
   markRead,
   offerHelp,
   rateMission,
+  sendVisitReport,
   register,
   regenerateInviteCode,
   signUp,
@@ -25,6 +26,7 @@ import {
 import { createSeed } from "./seed";
 import type { BackendMutationAction, BackendMutationPayloads } from "./backend-contract";
 import type { State } from "./types";
+import { acceptedOffer, isLinked, missionById, payersFor, userById } from "./selectors";
 
 const ACTIONS: Record<BackendMutationAction, true> = {
   login: true,
@@ -45,6 +47,7 @@ const ACTIONS: Record<BackendMutationAction, true> = {
   "cancel-mission": true,
   "companion-cancel": true,
   "complete-mission": true,
+  "send-visit-report": true,
   "rate-mission": true,
   "buy-gift-card": true,
   "update-profile": true,
@@ -64,7 +67,10 @@ export function applyBackendAction(
   state: State,
   action: BackendMutationAction,
   input: Record<string, unknown>,
+  actorId?: string,
+  now = state.now,
 ): unknown {
+  const missionId = text(input.missionId);
   switch (action) {
     case "login":
       return login(state, text(input.email), text(input.passwordHash));
@@ -81,6 +87,7 @@ export function applyBackendAction(
       return;
     }
     case "link-by-code":
+      if (!actorId || actorId !== input.familyId) throw new Error("You cannot link this account.");
       return linkByCode(
         state,
         text(input.familyId),
@@ -88,34 +95,72 @@ export function applyBackendAction(
         text(input.relation) as BackendMutationPayloads["link-by-code"]["relation"],
       );
     case "unlink-family":
+      if (!actorId || actorId !== input.byUserId) throw new Error("You cannot unlink this account.");
       return unlinkFamily(state, text(input.linkId), text(input.byUserId));
     case "regenerate-invite-code":
+      if (!actorId || actorId !== input.seniorId) throw new Error("You cannot change this invitation code.");
       return regenerateInviteCode(state, text(input.seniorId));
     case "register":
-      return register(
-        state,
-        text(input.activityId),
-        text(input.seniorId),
-        text(input.via) === "assistant" ? "assistant" : "catalogue",
-      );
+      return register(state, text(input.activityId), text(input.seniorId), text(input.via) === "assistant" ? "assistant" : "catalogue");
     case "unregister":
       return unregister(state, text(input.activityId), text(input.seniorId));
-    case "create-mission":
-      return createMission(state, input as unknown as BackendMutationPayloads["create-mission"]);
+    case "create-mission": {
+      const request = input as unknown as BackendMutationPayloads["create-mission"];
+      if (!actorId || actorId !== request.bookedById || (actorId !== request.seniorId && !isLinked(state, request.seniorId, actorId))) {
+        throw new Error("You cannot create this request.");
+      }
+      if (!payersFor(state, request.seniorId).some((payer) => payer.id === request.payerId)) {
+        throw new Error("This payer is unavailable for the outing.");
+      }
+      return createMission(state, {
+        seniorId: request.seniorId,
+        bookedById: actorId,
+        payerId: request.payerId,
+        activityId: request.activityId,
+        type: request.type,
+        note: request.note,
+        start: request.start,
+        durationMin: request.durationMin,
+        sector: request.sector,
+        meetingPoint: request.meetingPoint,
+        via: request.via,
+        autoAcceptVerifiedCompanion: typeof input.autoAcceptVerifiedCompanion === "boolean" ? input.autoAcceptVerifiedCompanion : undefined,
+      });
+    }
     case "offer-help":
-      return offerHelp(state, text(input.missionId), text(input.companionId));
+      if (userById(state, actorId)?.role !== "companion" || actorId !== input.companionId) throw new Error("You cannot make this offer.");
+      return offerHelp(state, missionId, text(input.companionId));
     case "withdraw-offer":
-      return withdrawOffer(state, text(input.missionId), text(input.companionId));
+      if (!actorId || actorId !== input.companionId) throw new Error("You cannot withdraw this offer.");
+      return withdrawOffer(state, missionId, actorId);
     case "accept-offer":
-      return acceptOffer(state, text(input.offerId));
-    case "decline-offer":
-      return declineOffer(state, text(input.offerId));
-    case "cancel-mission":
-      return cancelMission(state, text(input.missionId), text(input.reason));
+    case "decline-offer": {
+      const offerId = text(input.offerId);
+      const offer = state.offers.find((item) => item.id === offerId);
+      const m = offer && missionById(state, offer.missionId);
+      if (!m || !actorId || (actorId !== m.seniorId && !isLinked(state, m.seniorId, actorId))) {
+        throw new Error("You cannot decide on this offer.");
+      }
+      return action === "accept-offer" ? acceptOffer(state, offerId) : declineOffer(state, offerId);
+    }
+    case "cancel-mission": {
+      const m = missionById(state, missionId);
+      if (!m || !actorId || ![m.seniorId, m.payerId, m.bookedById].includes(actorId)) throw new Error("You cannot cancel this outing.");
+      return cancelMission(state, missionId, text(input.reason), input.acceptLateCharge === true, now);
+    }
     case "companion-cancel":
-      return companionCancel(state, text(input.missionId), text(input.companionId), text(input.reason));
-    case "complete-mission":
-      return completeMission(state, text(input.missionId));
+      if (!actorId || actorId !== input.companionId) throw new Error("You cannot cancel this outing.");
+      return companionCancel(state, missionId, actorId, text(input.reason));
+    case "complete-mission": {
+      const m = missionById(state, missionId);
+      if (!m || !actorId || ![m.seniorId, m.payerId, m.bookedById, acceptedOffer(state, missionId)?.companionId].includes(actorId)) {
+        throw new Error("You cannot complete this outing.");
+      }
+      return completeMission(state, missionId);
+    }
+    case "send-visit-report":
+      if (userById(state, actorId)?.role !== "companion" || !actorId) throw new Error("You cannot send this report.");
+      return sendVisitReport(state, missionId, actorId, text(input.summary), input.shareReportWithSenior === true);
     case "rate-mission":
       return rateMission(state, text(input.missionId), Number(input.rating), text(input.review));
     case "buy-gift-card":

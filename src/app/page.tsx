@@ -50,7 +50,7 @@ function LandingContent() {
               {t.landing.stepsTitle}
             </a>
             <LanguageSwitch />
-            <Link href="/login" className="btn btn-ghost btn-sm">
+            <Link href="/login" className="btn btn-ghost btn-sm landing-header-login">
               {t.landing.login}
             </Link>
           </nav>
@@ -68,7 +68,8 @@ function LandingContent() {
               {t.landing.title}
               <span>{t.landing.titleAccent}</span>
             </h1>
-            <p className="lead">{t.landing.lead}</p>
+            <p className="lead landing-wide">{t.landing.lead}</p>
+            <p className="lead landing-narrow">{t.landing.mobileLead}</p>
             <div className="hero-actions">
               {me ? (
                 <Link href={HOME_BY_ROLE[me.role]} className="btn btn-block-mobile">
@@ -80,10 +81,15 @@ function LandingContent() {
                   <Icon name="arrowRight" size={20} />
                 </Link>
               )}
-              <a href="#how" className="btn btn-secondary">
+              <a href="#how" className="btn btn-secondary landing-discover">
                 {t.landing.discover}
                 <Icon name="chevronDown" size={18} />
               </a>
+              {!me ? (
+                <Link href="/login" className="btn btn-secondary landing-narrow">
+                  {t.landing.login}
+                </Link>
+              ) : null}
             </div>
             <p className="hero-reassurance">
               <Icon name="check" size={18} />
@@ -96,7 +102,7 @@ function LandingContent() {
             <Leaf size={46} style={{ bottom: 40, right: "2%", color: "var(--sun)", transform: "rotate(40deg)" }} />
             <div className="phone">
               <div className="phone-screen">
-                <div className="row-between">
+                <div className="row-between preview-header">
                   <LogoMark size={30} />
                   <span className="chip">{t.nav.activities}</span>
                 </div>
@@ -109,7 +115,7 @@ function LandingContent() {
                       </div>
                       <div className="min-0">
                         <h3 style={{ fontSize: "1.02rem" }}>{f.text(sample.title)}</h3>
-                        <p className="muted small">{f.date(sample.start)}</p>
+                        <p className="muted small landing-wide">{f.date(sample.start)}</p>
                       </div>
                     </div>
                     <span className="btn btn-sm btn-block preview-confirmation">
@@ -131,7 +137,7 @@ function LandingContent() {
                       <span />
                     </span>
                   </div>
-                  <p className="small">{t.joy.lead}</p>
+                  <p className="small landing-wide">{t.joy.lead}</p>
                 </div>
               </div>
             </div>
@@ -142,7 +148,7 @@ function LandingContent() {
           </LandingPreview>
         </section>
 
-        <div className="container">
+        <div className="container landing-wide">
           <ul className="landing-benefits">
             {(["pin", "users", "heart"] as const).map((icon, i) => (
               <li key={icon}>
@@ -155,7 +161,24 @@ function LandingContent() {
           </ul>
         </div>
 
-        <section id="how" className="container landing-how" aria-labelledby="how-title">
+        <div className="container landing-narrow">
+          <details className="landing-explainer">
+            <summary>
+              {t.landing.stepsTitle}
+              <Icon name="chevronDown" size={20} />
+            </summary>
+            <ol>
+              {t.landing.steps.map((step) => (
+                <li key={step.title}>
+                  <strong>{step.title}</strong>
+                  <p>{step.text}</p>
+                </li>
+              ))}
+            </ol>
+          </details>
+        </div>
+
+        <section id="how" className="container landing-how landing-wide" aria-labelledby="how-title">
           <div className="landing-section-head">
             <div>
               <p className="hand">{t.landing.stepsEyebrow}</p>
@@ -179,7 +202,7 @@ function LandingContent() {
           </ol>
         </section>
 
-        <section className="container landing-invitation" aria-labelledby="invitation-title">
+        <section className="container landing-invitation landing-wide" aria-labelledby="invitation-title">
           <div className="landing-invitation-inner">
             <div className="invitation-copy">
               <p className="landing-eyebrow">{t.landing.forTitle}</p>
@@ -202,7 +225,7 @@ function LandingContent() {
         </section>
       </main>
 
-      <footer className="container landing-footer">
+      <footer className="container landing-footer landing-wide">
         <div className="row-between">
           <Logo size={28} />
           <p className="hand">{t.common.tagline}</p>

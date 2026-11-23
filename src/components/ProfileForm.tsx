@@ -18,6 +18,8 @@ export function ProfileForm({ user }: { user: User }) {
   const [lastName, setLastName] = useState(user.lastName);
   const [bioDraft, setBio] = useState<string | null>(null);
   const bio = bioDraft ?? f.text(user.bio);
+  const aboutChanged =
+    firstName.trim() !== user.firstName || lastName.trim() !== user.lastName || (bioDraft !== null && bio.trim() !== f.text(user.bio));
   const [sector, setSector] = useState<SectorId>(user.sector);
   const [interests, setInterests] = useState<Category[]>(user.interests);
   const [availability, setAvailability] = useState<Slot[]>(user.availability);
@@ -144,6 +146,11 @@ export function ProfileForm({ user }: { user: User }) {
             <span>{t.profileEditor.characters(bio.length)}</span>
           </div>
         </div>
+        {aboutChanged ? (
+          <button type="submit" className="btn profile-save-nearby" disabled={saving}>
+            <Icon name="check" /> {saving ? t.profileEditor.saving : t.common.save}
+          </button>
+        ) : null}
       </section>
 
       {user.role !== "family" ? (

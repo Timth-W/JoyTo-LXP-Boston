@@ -2,7 +2,7 @@
 
 /** Small shared building blocks. */
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { useI18n } from "@/i18n";
 import { initials } from "@/lib/format";
 import type { StatusTone } from "@/lib/selectors";
@@ -22,7 +22,7 @@ export function Avatar({ user, size = 44 }: { user: Pick<User, "id" | "firstName
   return (
     <span
       className="avatar"
-      style={{ width: size, height: size, background: colourFor(user.id), fontSize: size * 0.38 }}
+      style={{ "--avatar-default-size": `${size}px`, background: colourFor(user.id) } as CSSProperties}
       aria-hidden="true"
     >
       {initials(user.firstName, user.lastName)}

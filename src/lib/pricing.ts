@@ -1,4 +1,11 @@
 import { PRICING } from "./constants";
+import { toDate } from "./format";
+
+export function cancellationOutcome(start: string, now: string, cancelledBy: "client" | "companion") {
+  if (cancelledBy === "companion") return "refund";
+  const noticeMs = toDate(start).getTime() - toDate(now).getTime();
+  return noticeMs >= PRICING.freeCancellationHours * 60 * 60 * 1000 ? "free" : "charged";
+}
 
 export interface PriceBreakdown {
   billedMinutes: number;

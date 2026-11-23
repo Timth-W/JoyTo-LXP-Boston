@@ -91,6 +91,8 @@ CREATE TABLE missions (
   status ENUM('open', 'confirmed', 'done', 'cancelled') NOT NULL DEFAULT 'open',
   via ENUM('assistant', 'manual', 'catalogue') NOT NULL DEFAULT 'manual',
   cancel_reason TEXT NULL,
+  late_cancel BOOLEAN NOT NULL DEFAULT FALSE,
+  auto_accept_verified_companion BOOLEAN NOT NULL DEFAULT FALSE,
   rating INT NULL CHECK (rating BETWEEN 1 AND 5),
   review TEXT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -98,6 +100,21 @@ CREATE TABLE missions (
   CONSTRAINT fk_missions_booked_by FOREIGN KEY (booked_by_id) REFERENCES users(id),
   CONSTRAINT fk_missions_payer FOREIGN KEY (payer_id) REFERENCES users(id),
   CONSTRAINT fk_missions_activity FOREIGN KEY (activity_id) REFERENCES activities(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE visit_reports (
+  mission_id VARCHAR(64) PRIMARY KEY,
+  summary VARCHAR(300) NOT NULL,
+  share_report_with_senior BOOLEAN NOT NULL DEFAULT FALSE,
+  shared_at DATETIME NOT NULL,
+  CONSTRAINT fk_visit_reports_mission FOREIGN KEY (mission_id) REFERENCES missions(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE app_sessions (
+  token_hash CHAR(64) PRIMARY KEY,
+  user_id VARCHAR(64) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  CONSTRAINT fk_app_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE offers (

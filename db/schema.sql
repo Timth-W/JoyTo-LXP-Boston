@@ -91,6 +91,8 @@ create table missions (
   status         mission_status not null default 'open',
   via            booking_source not null default 'manual',
   cancel_reason  text,
+  late_cancel    boolean not null default false,
+  auto_accept_verified_companion boolean not null default false,
   rating         int check (rating between 1 and 5),
   review         text,
   created_at     timestamptz not null default now()
@@ -106,6 +108,21 @@ create table offers (
 );
 -- At most one accepted offer per outing.
 create unique index one_accepted_offer on offers(mission_id) where status = 'accepted';
+
+create table visit_reports (
+  mission_id uuid primary key references missions(id) on delete cascade,
+  summary text not null check (char_length(summary) between 1 and 300),
+  share_report_with_senior boolean not null default false,
+  shared_at timestamptz not null
+);
+
+create table app_sessions (
+  token_hash char(64) primary key,
+  user_id uuid not null references profiles(id) on delete cascade,
+  expires_at timestamptz not null
+);
+alter table app_sessions enable row level security;
+alter table visit_reports enable row level security;
 
 -- Amounts in cents. Real card data stays with the payment provider (for example Stripe).
 create table payments (

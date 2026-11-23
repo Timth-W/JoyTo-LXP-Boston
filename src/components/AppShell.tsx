@@ -7,7 +7,7 @@
  */
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { useI18n } from "@/i18n";
 import type { Dict } from "@/i18n/en";
 import { HOME_BY_ROLE } from "@/lib/constants";
@@ -66,6 +66,8 @@ export function AppShell({ role, children }: { role?: Role; children: ReactNode 
   const router = useRouter();
   const path = usePathname();
   const menuRef = useRef<HTMLDetailsElement>(null);
+  const previousPath = useRef(path);
+  const historyPath = useRef<string | null>(null);
   /** True while signing out, so the guard below does not send the user to the login page. */
   const leaving = useRef(false);
 
@@ -76,6 +78,23 @@ export function AppShell({ role, children }: { role?: Role; children: ReactNode 
     if (!me) router.replace(`/login?next=${encodeURIComponent(path)}`);
     else if (role && me.role !== role) router.replace(HOME_BY_ROLE[me.role]);
   }, [hydrated, me, role, router, path]);
+
+  useLayoutEffect(() => {
+    const rememberHistoryPath = () => {
+      historyPath.current = window.location.pathname;
+    };
+    window.addEventListener("popstate", rememberHistoryPath);
+    return () => window.removeEventListener("popstate", rememberHistoryPath);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (previousPath.current === path) return;
+    const fromHistory = historyPath.current === path;
+    previousPath.current = path;
+    historyPath.current = null;
+    // Next.js may keep the previous scroll offset when the top of the next screen is already visible.
+    if (!fromHistory && window.matchMedia("(max-width: 959px)").matches) window.scrollTo(0, 0);
+  }, [path]);
 
   /* Close the account menu after navigating. */
   useEffect(() => {

@@ -1,10 +1,12 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { NextRequest } from "next/server";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { GET, POST } from "../../app/api/backend/route";
 import { signUp } from "../actions";
 import { applyBackendAction, isBackendMutationAction } from "../backend-actions";
-import { createBackendStore, parseStatePayload } from "../backend";
+import { appStateStore, createBackendStore, parseStatePayload } from "../backend";
 import { createSeed } from "../seed";
 
 const files: string[] = [];
@@ -54,7 +56,42 @@ describe("server-side state store", () => {
 
     expect(parseStatePayload(seed)).toEqual(seed);
     expect(parseStatePayload(JSON.stringify(seed))).toEqual(seed);
+    expect(parseStatePayload({ ...seed, version: 3 })).toEqual(seed);
     expect(() => parseStatePayload({ version: -1 })).toThrow(/unsupported version or shape/i);
+  });
+
+  it("keeps separate browser identities and strips private report fields from the HTTP response", async () => {
+    const state = createSeed();
+    const mission = state.missions.find((item) => item.seniorId === "u-marie")!;
+    mission.visitReport = { summary: "Private outing notes", shareReportWithSenior: false, sharedAt: state.now };
+    const load = vi.spyOn(appStateStore, "load").mockResolvedValue(state);
+    const transact = vi.spyOn(appStateStore, "transact").mockImplementation(async (mutator) => ({ result: mutator(state), state }));
+    const url = "http://localhost/api/backend";
+    const login = (userId: string) =>
+      POST(new NextRequest(url, { method: "POST", body: JSON.stringify({ action: "login-as-demo", payload: { userId } }) }));
+    try {
+      const family = await login("u-sophie");
+      const senior = await login("u-marie");
+      const familyCookie = family.headers.get("set-cookie")!;
+      const seniorCookie = senior.headers.get("set-cookie")!;
+      expect(familyCookie).toMatch(/HttpOnly/i);
+      const familyRes = await GET(new NextRequest(url, { headers: { cookie: familyCookie.split(";")[0] } }));
+      const seniorRes = await GET(new NextRequest(url, { headers: { cookie: seniorCookie.split(";")[0] } }));
+      expect(await familyRes.json()).toMatchObject({
+        state: {
+          currentUserId: "u-sophie",
+          missions: expect.arrayContaining([expect.objectContaining({ id: mission.id, visitReport: mission.visitReport })]),
+        },
+      });
+      const seniorState = (await seniorRes.json()).state;
+      expect(seniorState.currentUserId).toBe("u-marie");
+      expect(seniorState.missions.find((item: { id: string }) => item.id === mission.id)).not.toHaveProperty("visitReport");
+      expect(seniorState).not.toHaveProperty("sessions");
+      expect((await (await GET(new NextRequest(url))).json()).state.currentUserId).toBeNull();
+    } finally {
+      load.mockRestore();
+      transact.mockRestore();
+    }
   });
 
   it("persists the app state and keeps the signup flow valid on the backend layer", async () => {

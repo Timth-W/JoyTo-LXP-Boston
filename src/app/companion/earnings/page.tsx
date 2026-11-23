@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Empty, PageHead } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import { priceFor } from "@/lib/pricing";
-import { companionStatus, userById } from "@/lib/selectors";
+import { companionEarningsMissions, userById } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
 import type { Mission } from "@/lib/types";
 
@@ -13,8 +13,9 @@ export default function EarningsPage() {
   const { t, f } = useI18n();
   if (!me) return null;
   const companion = me;
-  const mine = state.missions.filter((m) => ["confirmed", "done"].includes(companionStatus(state, m, companion.id)));
-  const done = mine.filter((m) => m.status === "done");
+  const mine = companionEarningsMissions(state, companion.id);
+  const paid = mine.filter((m) => m.status !== "confirmed");
+  const done = paid.filter((m) => m.status === "done");
   const upcoming = mine.filter((m) => m.status === "confirmed");
   const total = (list: Mission[]) => list.reduce((sum, m) => sum + priceFor(m.durationMin).companionCents, 0);
 
@@ -23,7 +24,7 @@ export default function EarningsPage() {
       <PageHead title={t.companion.earningsTitle} lead={t.companion.earningsLead} />
       <div className="stats">
         <div className="card stat">
-          <span className="stat-value">{f.money(total(done))}</span>
+          <span className="stat-value">{f.money(total(paid))}</span>
           <span className="stat-label">{t.companion.earned}</span>
         </div>
         <div className="card stat">
@@ -51,7 +52,11 @@ export default function EarningsPage() {
                       </span>
                       <span className="muted small">
                         {t.outingTypes[m.type]} · {f.duration(m.durationMin)} ·{" "}
-                        {m.status === "done" ? t.companion.statusPaid : t.companion.statusPending}
+                        {m.lateCancel
+                          ? t.companion.lateCancellationPaid
+                          : m.status === "done"
+                            ? t.companion.statusPaid
+                            : t.companion.statusPending}
                       </span>
                     </span>
                     <strong style={{ color: "var(--navy)", fontVariantNumeric: "tabular-nums" }}>

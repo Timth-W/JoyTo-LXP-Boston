@@ -67,6 +67,27 @@ export default function ActivitiesPage() {
             ) : null}
           </div>
         </div>
+        <div className="catalogue-category-select">
+          <label className="sr-only" htmlFor="activity-category">
+            {t.catalogue.categoryLabel}
+          </label>
+          <select
+            id="activity-category"
+            value={category}
+            onChange={(event) => {
+              const value = event.currentTarget.value;
+              setCategory(CATEGORY_IDS.find((id) => id === value) ?? "all");
+            }}
+          >
+            <option value="all">{t.catalogue.allCategories}</option>
+            {CATEGORY_IDS.map((c) => (
+              <option key={c} value={c}>
+                {t.categories[c]}
+              </option>
+            ))}
+          </select>
+          <Icon name="chevronDown" size={18} />
+        </div>
         <div className="toggle-chips catalogue-categories" role="group" aria-labelledby="catalogue-filter-title">
           <label className="toggle-chip">
             <input type="radio" name="category" checked={category === "all"} onChange={() => setCategory("all")} />
@@ -88,7 +109,9 @@ export default function ActivitiesPage() {
             <h2 id="catalogue-results-title" aria-live="polite" aria-atomic="true">
               {t.catalogue.resultCount(list.length)}
             </h2>
-            <p>{view === "map" ? t.catalogue.mapHint : t.catalogue.dateOrder}</p>
+            <p className={view === "map" ? "catalogue-map-hint" : undefined}>
+              {view === "map" ? t.catalogue.mapHint : t.catalogue.dateOrder}
+            </p>
           </div>
           {filtered ? (
             <button type="button" className="btn btn-ghost btn-sm" onClick={resetFilters}>

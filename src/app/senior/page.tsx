@@ -56,6 +56,11 @@ export default function SeniorHome() {
 
       <div className="senior-home-intro">
         <JoyHero role="senior" featured />
+        <Link href="/senior/outings/new?from=home" className="link-btn senior-book-direct">
+          <Icon name="heart" size={20} />
+          {t.senior.newOuting}
+          <Icon name="chevronRight" size={18} />
+        </Link>
         <aside className="senior-shortcuts" aria-labelledby="shortcuts-title">
           <p className="hand">{t.senior.atYourPace}</p>
           <h2 id="shortcuts-title">{t.senior.shortcutTitle}</h2>

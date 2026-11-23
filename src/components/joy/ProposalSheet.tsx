@@ -13,7 +13,17 @@ import { isCompatible } from "@/lib/matching";
 import type { Proposal } from "@/lib/joy/proposals";
 import { proposalCard, when } from "@/lib/joy/script";
 import { priceFor, splitPayment } from "@/lib/pricing";
-import { activityById, attendees, giftMinutesLeft, isRegistered, missionById, pendingOffers, seatsLeft, userById } from "@/lib/selectors";
+import {
+  activityById,
+  attendees,
+  defaultAutoAcceptVerifiedCompanion,
+  giftMinutesLeft,
+  isRegistered,
+  missionById,
+  pendingOffers,
+  seatsLeft,
+  userById,
+} from "@/lib/selectors";
 import { useStore } from "@/lib/store";
 import type { User } from "@/lib/types";
 import { Icon } from "../Icon";
@@ -52,6 +62,7 @@ export function ProposalSheet({
   const senior = "seniorId" in proposal ? userById(state, proposal.seniorId) : undefined;
   const lastMeeting = senior ? [...state.missions].reverse().find((m) => m.seniorId === senior.id)?.meetingPoint : undefined;
   const [meetingPoint, setMeetingPoint] = useState(lastMeeting ?? "");
+  const [autoAccept, setAutoAccept] = useState(() => defaultAutoAcceptVerifiedCompanion(viewer.role));
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -97,6 +108,7 @@ export function ProposalSheet({
         sector: activity?.sector ?? senior.sector,
         meetingPoint: meetingPoint.trim(),
         via: "assistant",
+        autoAcceptVerifiedCompanion: autoAccept,
       });
       onConfirmed({ app: "The companion request was published and the payment is on hold.", spoken: t.joy.ack.book });
     } catch {
@@ -171,6 +183,10 @@ export function ProposalSheet({
           />
           {error ? <span className="error">{error}</span> : <small>{t.booking.meetingPointHelp}</small>}
         </div>
+        <label className="checkbox">
+          <input type="checkbox" checked={autoAccept} onChange={(event) => setAutoAccept(event.target.checked)} />
+          {t.booking.autoAcceptVerified}
+        </label>
         <div className="price-box">
           <div className="price-line">
             <span>{t.booking.priceLine(f.duration(split.billedMinutes), f.money(PRICING.hourlyCents))}</span>
@@ -188,6 +204,7 @@ export function ProposalSheet({
             <span>{t.joy.sheet.toPay}</span>
             <span>{f.money(split.cardCents)}</span>
           </div>
+          <p className="muted small">{t.booking.cancellationPolicy}</p>
         </div>
       </form>
     );

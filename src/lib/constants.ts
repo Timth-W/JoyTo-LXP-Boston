@@ -1,7 +1,7 @@
 import type { Category, DayKey, OutingType, Relation, Role, SectorId } from "./types";
 
 export const APP_NAME = "JoyTo";
-export const STATE_VERSION = 3;
+export const STATE_VERSION = 4;
 
 export const CATEGORY_IDS: Category[] = ["gardening", "cooking", "games", "culture", "walk", "music", "coffee"];
 export const OUTING_TYPE_IDS: OutingType[] = ["activity", "walk", "errands", "company"];
@@ -28,6 +28,7 @@ export const PRICING = {
   stepMinutes: 15,
   /** Share paid to the companion. */
   companionShare: 0.7,
+  freeCancellationHours: 24,
   /** Gift card: 5 hours for 115 €. */
   giftCard: { minutes: 300, priceCents: 11500 },
 } as const;

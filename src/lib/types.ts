@@ -98,9 +98,18 @@ export interface Mission {
   status: MissionStatus;
   via: "assistant" | "manual";
   cancelReason?: string;
+  lateCancel?: boolean;
+  autoAcceptVerifiedCompanion?: boolean;
+  visitReport?: VisitReport;
   rating?: number;
   review?: string;
   createdAt: string;
+}
+
+export interface VisitReport {
+  summary: string;
+  shareReportWithSenior: boolean;
+  sharedAt: string;
 }
 
 export type OfferStatus = "pending" | "accepted" | "declined" | "withdrawn";
@@ -150,6 +159,7 @@ export type NotificationType =
   | "companionCancelled"
   | "missionDone"
   | "companionPaid"
+  | "visitReportReady"
   | "newReview"
   | "bookedForYou"
   | "seniorBooked"
@@ -216,6 +226,7 @@ export interface State {
   /** Demo clock (local ISO time). Replace with the real date in production. */
   now: string;
   currentUserId: string | null;
+  sessions?: { tokenHash: string; userId: string; expiresAt: number }[];
   users: User[];
   links: FamilyLink[];
   activities: Activity[];

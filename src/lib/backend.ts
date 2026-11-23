@@ -15,7 +15,7 @@ function normalizeState(raw: unknown): State {
   if (!raw || typeof raw !== "object") throw new Error("MySQL app_state payload is invalid.");
   const state = raw as State;
   if (
-    state.version !== STATE_VERSION ||
+    (state.version !== STATE_VERSION && state.version !== 3) ||
     !Array.isArray(state.users) ||
     !Array.isArray(state.activities) ||
     !Array.isArray(state.registrations) ||
@@ -23,7 +23,8 @@ function normalizeState(raw: unknown): State {
   ) {
     throw new Error("MySQL app_state payload has an unsupported version or shape.");
   }
-  return state;
+  // These fields are additive. Old missions keep manual acceptance and have no report.
+  return state.version === STATE_VERSION ? state : { ...state, version: STATE_VERSION };
 }
 
 export function parseStatePayload(payload: unknown): State {

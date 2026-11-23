@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useI18n } from "@/i18n";
+import { cancellationOutcome } from "@/lib/pricing";
 import {
   activityById,
   companionOf,
@@ -14,6 +15,7 @@ import {
   paymentFor,
   pendingOffers,
   userById,
+  visitReportFor,
 } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
 import type { StatusTone } from "@/lib/selectors";
@@ -29,8 +31,16 @@ export function OutingDetail({ missionId, viewer, backHref }: { missionId: strin
   const { t, f } = useI18n();
   const [cancelling, setCancelling] = useState(false);
   const [reason, setReason] = useState("");
+  const [cancelNow, setCancelNow] = useState("");
+  const [cancelPending, setCancelPending] = useState(false);
   const [rating, setRating] = useState(5);
   const [review, setReview] = useState("");
+
+  useEffect(() => {
+    if (!cancelling) return;
+    const timer = window.setInterval(() => setCancelNow(new Date().toISOString()), 1000);
+    return () => window.clearInterval(timer);
+  }, [cancelling]);
 
   const m = missionById(state, missionId);
   const allowed =
@@ -51,6 +61,8 @@ export function OutingDetail({ missionId, viewer, backHref }: { missionId: strin
   const companion = companionOf(state, m.id);
   const offers = pendingOffers(state, m.id);
   const payment = paymentFor(state, m.id);
+  const report = visitReportFor(state, m, viewer);
+  const incursCharge = cancellationOutcome(m.start, cancelNow || state.now, "client") === "charged";
   const status = ownerStatus(state, m);
   const past = isPast(state, m.start);
   const isSenior = viewer.id === m.seniorId;
@@ -58,11 +70,15 @@ export function OutingDetail({ missionId, viewer, backHref }: { missionId: strin
 
   async function submitCancel(e: FormEvent) {
     e.preventDefault();
+    if (cancelPending) return;
+    setCancelPending(true);
     try {
-      await mutate("cancel-mission", { missionId: mission.id, reason: reason.trim() || t.outing.noReason });
+      await mutate("cancel-mission", { missionId: mission.id, reason: reason.trim(), acceptLateCharge: incursCharge });
       setCancelling(false);
     } catch {
       // The shared backend notice explains the failed request.
+    } finally {
+      setCancelPending(false);
     }
   }
 
@@ -178,10 +194,18 @@ export function OutingDetail({ missionId, viewer, backHref }: { missionId: strin
                     {c.bio ? <p>{f.text(c.bio)}</p> : null}
                     <Interests list={c.interests} highlight={senior?.interests} />
                     <div className="card-actions">
-                      <button type="button" className="btn btn-sm" onClick={() => void mutate("accept-offer", { offerId: o.id }).catch(() => undefined)}>
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={() => void mutate("accept-offer", { offerId: o.id }).catch(() => undefined)}
+                      >
                         <Icon name="check" size={18} /> {t.outing.accept(c.firstName)}
                       </button>
-                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => void mutate("decline-offer", { offerId: o.id }).catch(() => undefined)}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => void mutate("decline-offer", { offerId: o.id }).catch(() => undefined)}
+                      >
                         {t.outing.decline}
                       </button>
                     </div>
@@ -199,6 +223,13 @@ export function OutingDetail({ missionId, viewer, backHref }: { missionId: strin
           <Person user={companion} showLastName={false} subtitle={companion.companion?.verified ? t.common.verified : undefined} />
           {companion.bio ? <p>{f.text(companion.bio)}</p> : null}
           <Interests list={companion.interests} highlight={senior?.interests} />
+        </section>
+      ) : null}
+
+      {report ? (
+        <section className="card" aria-labelledby="outing-visit-report">
+          <h2 id="outing-visit-report">{t.visitReport.title}</h2>
+          <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{report.summary}</p>
         </section>
       ) : null}
 
@@ -251,12 +282,23 @@ export function OutingDetail({ missionId, viewer, backHref }: { missionId: strin
         <section className="stack">
           <div className="row">
             {m.status === "confirmed" && past ? (
-              <button type="button" className="btn" onClick={() => void mutate("complete-mission", { missionId: mission.id }).catch(() => undefined)}>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => void mutate("complete-mission", { missionId: mission.id }).catch(() => undefined)}
+              >
                 <Icon name="check" /> {t.outing.markDone}
               </button>
             ) : null}
             {!cancelling ? (
-              <button type="button" className="btn btn-danger btn-sm" onClick={() => setCancelling(true)}>
+              <button
+                type="button"
+                className="btn btn-danger btn-sm"
+                onClick={() => {
+                  setCancelNow(new Date().toISOString());
+                  setCancelling(true);
+                }}
+              >
                 {t.outing.cancel}
               </button>
             ) : null}
@@ -269,13 +311,11 @@ export function OutingDetail({ missionId, viewer, backHref }: { missionId: strin
                   {t.outing.cancelReason} <span className="muted small">({t.common.optional})</span>
                 </label>
                 <input id="cx-reason" className="input" value={reason} maxLength={200} onChange={(e) => setReason(e.target.value)} />
-                <small>
-                  {companion && m.status === "confirmed" ? t.outing.cancelHelpCompanion(companion.firstName) : t.outing.cancelHelp}
-                </small>
+                <small>{incursCharge ? t.outing.cancelLateHelp : t.outing.cancelHelp}</small>
               </div>
               <div className="row">
-                <button className="btn btn-danger-solid btn-sm" type="submit">
-                  {t.outing.confirmCancel}
+                <button className="btn btn-danger-solid btn-sm" type="submit" disabled={cancelPending}>
+                  {incursCharge ? t.outing.confirmLateCancel : t.outing.confirmCancel}
                 </button>
                 <button className="btn btn-ghost btn-sm" type="button" onClick={() => setCancelling(false)}>
                   {t.outing.keep}

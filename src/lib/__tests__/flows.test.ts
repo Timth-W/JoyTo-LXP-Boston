@@ -9,6 +9,7 @@ import {
   login,
   offerHelp,
   register,
+  sendVisitReport,
   signUp,
   toggleDemoTime,
   unlinkFamily,
@@ -16,11 +17,25 @@ import {
 import { generateInviteCode, normalizeInviteCode } from "../auth";
 import { eligibleActivities, isCompatible, rankActivities, rankMissions } from "../matching";
 import { createSeed } from "../seed";
-import { familyOf, giftMinutesLeft, isPastAt, missionForCompanion, paymentFor, seniorsOf, userById } from "../selectors";
+import { backendView, createSession, removeSession } from "../backend-session";
+import {
+  companionEarningsMissions,
+  familyOf,
+  giftMinutesLeft,
+  isPastAt,
+  missionById,
+  missionForCompanion,
+  paymentFor,
+  seniorsOf,
+  userById,
+} from "../selectors";
 import type { State } from "../types";
 
 const seed = (): State => structuredClone(createSeed());
-const newMission = (s: State) =>
+const newMission = (
+  s: State,
+  options: { bookedById?: string; sector?: "gardens" | "centre"; autoAcceptVerifiedCompanion?: boolean } = {},
+) =>
   createMission(s, {
     seniorId: "u-marie",
     bookedById: "u-marie",
@@ -33,6 +48,7 @@ const newMission = (s: State) =>
     sector: "gardens",
     meetingPoint: "3 Rose Street",
     via: "manual",
+    ...options,
   });
 
 describe("accounts", () => {
@@ -160,20 +176,91 @@ describe("accompanied outing lifecycle", () => {
     expect(paymentFor(s, id)?.status).toBe("captured");
   });
 
-  it("refunds and gives the gift minutes back when cancelled", () => {
+  it("refunds and restores the gift credit at exactly 24 hours", () => {
     const s = seed();
     const id = newMission(s);
+    s.now = "2026-11-13T14:15";
     cancelMission(s, id, "ill");
     expect(paymentFor(s, id)?.status).toBe("refunded");
     expect(giftMinutesLeft(s, "u-marie")).toBe(300);
   });
 
-  it("reopens the outing when the companion withdraws", () => {
+  it("charges a late client cancellation only once and includes it in the assigned companion's earnings", () => {
     const s = seed();
     const id = newMission(s);
     offerHelp(s, id, "u-karim");
     acceptOffer(s, s.offers.find((o) => o.missionId === id)!.id);
+    s.now = "2026-11-13T14:15:01";
+    expect(() => cancelMission(s, id, "", false)).toThrow();
+    expect(missionById(s, id)?.status).toBe("confirmed");
+    cancelMission(s, id, "ill", true);
+    const notificationCount = s.notifications.length;
+    cancelMission(s, id, "ill", true);
+    expect(missionById(s, id)).toMatchObject({ status: "cancelled", lateCancel: true });
+    expect(paymentFor(s, id)?.status).toBe("captured");
+    expect(giftMinutesLeft(s, "u-marie")).toBe(150);
+    expect(companionEarningsMissions(s, "u-karim").some((m) => m.id === id)).toBe(true);
+    expect(s.notifications).toHaveLength(notificationCount);
+  });
+
+  it("closes the outing and refunds the full payment once when the confirmed companion cancels", () => {
+    const s = seed();
+    s.giftCards.find((card) => card.seniorId === "u-marie")!.minutesLeft = 60;
+    const id = newMission(s);
+    offerHelp(s, id, "u-karim");
+    acceptOffer(s, s.offers.find((o) => o.missionId === id)!.id);
+    s.now = "2026-11-14T13:15";
     companionCancel(s, id, "u-karim", "exam");
-    expect(s.missions.find((x) => x.id === id)?.status).toBe("open");
+    companionCancel(s, id, "u-karim", "exam");
+    expect(missionById(s, id)?.status).toBe("cancelled");
+    expect(paymentFor(s, id)).toMatchObject({ status: "refunded", giftMinutes: 60, cardCents: 3750 });
+    expect(giftMinutesLeft(s, "u-marie")).toBe(60);
+    expect(s.offers.find((o) => o.missionId === id)?.status).toBe("withdrawn");
+    expect(rankMissions(s, userById(s, "u-karim")!).some(({ item }) => item.id === id)).toBe(false);
+    expect(
+      s.notifications
+        .filter((n) => n.type === "companionCancelled" && n.params.missionId === id)
+        .map((n) => n.userId)
+        .sort(),
+    ).toEqual(["u-marie", "u-sophie"]);
+  });
+
+  it("confirms at most one eligible verified companion on an automatic family request", () => {
+    const s = seed();
+    userById(s, "u-lea")!.availability.push("sat-pm");
+    const id = newMission(s, { bookedById: "u-sophie", sector: "centre" });
+    expect(missionById(s, id)?.autoAcceptVerifiedCompanion).toBe(true);
+    offerHelp(s, id, "u-tom");
+    expect(missionById(s, id)?.status).toBe("open");
+    offerHelp(s, id, "u-karim");
+    offerHelp(s, id, "u-lea");
+    expect(missionById(s, id)?.status).toBe("confirmed");
+    expect(s.offers.filter((o) => o.missionId === id && o.status === "accepted").map((o) => o.companionId)).toEqual(["u-karim"]);
+    const manual = newMission(s, { bookedById: "u-sophie", autoAcceptVerifiedCompanion: false });
+    offerHelp(s, manual, "u-karim");
+    expect(missionById(s, manual)?.status).toBe("open");
+  });
+
+  it.each([false, true])("shares an outing report only with authorized sessions (senior opt-in = %s)", (shareWithSenior) => {
+    const s = seed();
+    const id = newMission(s);
+    offerHelp(s, id, "u-karim");
+    acceptOffer(s, s.offers.find((o) => o.missionId === id)!.id);
+    expect(() => sendVisitReport(s, id, "u-karim", "In progress", shareWithSenior)).toThrow();
+    toggleDemoTime(s);
+    completeMission(s, id);
+    expect(() => sendVisitReport(s, id, "u-lea", "Not assigned", shareWithSenior)).toThrow();
+    sendVisitReport(s, id, "u-karim", "A pleasant walk", shareWithSenior);
+    sendVisitReport(s, id, "u-karim", "Retry", !shareWithSenior);
+    const seniorToken = createSession(s, "u-marie", undefined);
+    const familyToken = createSession(s, "u-sophie", undefined);
+    const strangerToken = createSession(s, "u-lea", undefined);
+    s.currentUserId = "u-sophie"; // The old shared field cannot authorize another browser.
+    expect(missionById(backendView(s, undefined), id)?.visitReport).toBeUndefined();
+    expect(missionById(backendView(s, strangerToken), id)?.visitReport).toBeUndefined();
+    expect(missionById(backendView(s, familyToken), id)?.visitReport?.summary).toBe("A pleasant walk");
+    expect(missionById(backendView(s, seniorToken), id)?.visitReport?.summary).toBe(shareWithSenior ? "A pleasant walk" : undefined);
+    removeSession(s, familyToken);
+    expect(missionById(backendView(s, familyToken), id)?.visitReport).toBeUndefined();
   });
 });

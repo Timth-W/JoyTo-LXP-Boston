@@ -6,8 +6,9 @@
 import { DEMO_LATER, DEMO_NOW, PRICING } from "./constants";
 import { generateInviteCode, normalizeEmail } from "./auth";
 import { isCompatible } from "./matching";
-import { splitPayment } from "./pricing";
+import { cancellationOutcome, splitPayment } from "./pricing";
 import {
+  defaultAutoAcceptVerifiedCompanion,
   findSeniorByCode,
   findUserByEmail,
   familyOf,
@@ -178,6 +179,7 @@ export interface NewMission {
   sector: SectorId;
   meetingPoint: string;
   via: "assistant" | "manual";
+  autoAcceptVerifiedCompanion?: boolean;
 }
 
 /** Link to an outing, depending on who reads the notification. */
@@ -196,7 +198,14 @@ function seniorSide(s: State, m: Mission) {
 /** Publishes an outing and puts the payment on hold (gift card first, then bank card). */
 export function createMission(s: State, input: NewMission): string {
   const id = nextId(s, "m");
-  const mission: Mission = { ...input, id, status: "open", createdAt: s.now };
+  const mission: Mission = {
+    ...input,
+    autoAcceptVerifiedCompanion:
+      input.autoAcceptVerifiedCompanion ?? defaultAutoAcceptVerifiedCompanion(userById(s, input.bookedById)?.role),
+    id,
+    status: "open",
+    createdAt: s.now,
+  };
   s.missions.push(mission);
 
   const split = splitPayment(input.durationMin, giftMinutesLeft(s, input.seniorId));
@@ -248,10 +257,17 @@ function restoreGiftMinutes(s: State, seniorId: string, minutes: number) {
 
 export function offerHelp(s: State, missionId: string, companionId: string) {
   const m = missionById(s, missionId);
-  if (!m || m.status !== "open") return;
+  const companion = userById(s, companionId);
+  if (!m || !companion || !isCompatible(s, m, companion)) return;
   const existing = s.offers.find((o) => o.missionId === missionId && o.companionId === companionId);
-  if (existing) existing.status = "pending";
-  else s.offers.push({ id: nextId(s, "o"), missionId, companionId, status: "pending", createdAt: s.now });
+  if (existing?.status === "pending") return;
+  const offer = existing ?? { id: nextId(s, "o"), missionId, companionId, status: "pending" as const, createdAt: s.now };
+  offer.status = "pending";
+  if (!existing) s.offers.push(offer);
+  if (m.autoAcceptVerifiedCompanion && companion.companion?.verified === true) {
+    acceptOffer(s, offer.id, true);
+    return;
+  }
   for (const uid of seniorSide(s, m)) {
     notify(s, uid, "offerReceived", { actorId: companionId, missionId, date: m.start }, outingHref(s, missionId, uid));
   }
@@ -262,7 +278,7 @@ export function withdrawOffer(s: State, missionId: string, companionId: string) 
   if (o) o.status = "withdrawn";
 }
 
-export function acceptOffer(s: State, offerId: string) {
+export function acceptOffer(s: State, offerId: string, automatic = false) {
   const o = s.offers.find((x) => x.id === offerId);
   if (!o || o.status !== "pending") return;
   const m = missionById(s, o.missionId);
@@ -274,7 +290,7 @@ export function acceptOffer(s: State, offerId: string) {
     notify(s, other.companionId, "missionTaken", { missionId: m.id, date: m.start }, `/companion/missions/${m.id}`);
   }
   notify(s, o.companionId, "offerAccepted", { seniorId: m.seniorId, missionId: m.id, date: m.start }, `/companion/missions/${m.id}`);
-  for (const uid of seniorSide(s, m).filter((id) => id !== m.seniorId)) {
+  for (const uid of seniorSide(s, m).filter((id) => automatic || id !== m.seniorId)) {
     notify(
       s,
       uid,
@@ -293,36 +309,61 @@ export function declineOffer(s: State, offerId: string) {
   if (m) notify(s, o.companionId, "offerDeclined", { missionId: m.id, date: m.start }, `/companion/missions/${m.id}`);
 }
 
-/** Cancelled by the senior or a relative: the outing is cancelled and the money released. */
-export function cancelMission(s: State, missionId: string, reason: string) {
+function refundMission(s: State, m: Mission) {
+  const payment = paymentFor(s, m.id);
+  if (!payment || payment.status === "refunded") return;
+  payment.status = "refunded";
+  restoreGiftMinutes(s, m.seniorId, payment.giftMinutes);
+}
+
+export function cancelMission(s: State, missionId: string, reason: string, acceptLateCharge = true, now = s.now) {
   const m = missionById(s, missionId);
   if (!m || (m.status !== "open" && m.status !== "confirmed")) return;
+  const charged = cancellationOutcome(m.start, now, "client") === "charged";
+  if (charged && !acceptLateCharge) throw new Error("Late cancellation charge must be confirmed.");
   m.status = "cancelled";
   m.cancelReason = reason;
+  m.lateCancel = charged;
   const p = paymentFor(s, missionId);
-  if (p && p.status === "authorized") {
-    p.status = "refunded";
-    restoreGiftMinutes(s, m.seniorId, p.giftMinutes);
-  }
+  if (!charged) refundMission(s, m);
+  else if (p?.status === "authorized") p.status = "captured";
   for (const o of offersFor(s, missionId).filter((x) => x.status === "pending" || x.status === "accepted")) {
     notify(s, o.companionId, "missionCancelled", { missionId: m.id, date: m.start, reason }, `/companion/missions/${m.id}`);
     if (o.status === "pending") o.status = "declined";
   }
 }
 
-/** A confirmed companion withdraws: the outing is open to others again. */
+/** A confirmed companion cancels the outing and releases the client's payment. */
 export function companionCancel(s: State, missionId: string, companionId: string, reason: string) {
   const m = missionById(s, missionId);
   const o = s.offers.find((x) => x.missionId === missionId && x.companionId === companionId && x.status === "accepted");
   if (!m || !o || m.status !== "confirmed") return;
   o.status = "withdrawn";
-  m.status = "open";
+  m.status = "cancelled";
+  m.cancelReason = reason;
+  m.lateCancel = false;
+  refundMission(s, m);
   for (const uid of seniorSide(s, m)) {
     notify(s, uid, "companionCancelled", { actorId: companionId, missionId: m.id, date: m.start, reason }, outingHref(s, m.id, uid));
   }
-  for (const c of s.users.filter((u) => u.role === "companion" && u.id !== companionId)) {
-    if (isCompatible(s, m, c))
-      notify(s, c.id, "newMission", { seniorId: m.seniorId, missionId: m.id, date: m.start }, `/companion/missions/${m.id}`);
+}
+
+export function sendVisitReport(s: State, missionId: string, companionId: string, summary: string, shareReportWithSenior: boolean) {
+  const m = missionById(s, missionId);
+  const text = summary.trim();
+  if (
+    !m ||
+    m.status !== "done" ||
+    !s.offers.some((o) => o.missionId === missionId && o.companionId === companionId && o.status === "accepted")
+  )
+    throw new Error("Only the assigned companion can send the report after the outing.");
+  if (!text || text.length > 300) throw new Error("Invalid visit report length.");
+  if (m.visitReport) return;
+  m.visitReport = { summary: text, shareReportWithSenior, sharedAt: s.now };
+  const recipients = familyOf(s, m.seniorId).map((relative) => relative.id);
+  if (shareReportWithSenior) recipients.push(m.seniorId);
+  for (const userId of new Set(recipients)) {
+    notify(s, userId, "visitReportReady", { missionId, seniorId: m.seniorId, date: m.start }, outingHref(s, missionId, userId));
   }
 }
 

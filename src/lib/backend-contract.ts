@@ -17,9 +17,10 @@ export interface BackendMutationPayloads {
   "withdraw-offer": { missionId: string; companionId: string };
   "accept-offer": { offerId: string };
   "decline-offer": { offerId: string };
-  "cancel-mission": { missionId: string; reason: string };
+  "cancel-mission": { missionId: string; reason: string; acceptLateCharge: boolean };
   "companion-cancel": { missionId: string; companionId: string; reason: string };
   "complete-mission": { missionId: string };
+  "send-visit-report": { missionId: string; summary: string; shareReportWithSenior: boolean };
   "rate-mission": { missionId: string; rating: number; review: string };
   "buy-gift-card": { buyerId: string; seniorId: string };
   "update-profile": { userId: string; patch: ProfilePatch };

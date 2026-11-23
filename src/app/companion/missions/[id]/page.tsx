@@ -18,6 +18,9 @@ export default function CompanionMissionPage() {
   const { t, f } = useI18n();
   const [cancelling, setCancelling] = useState(false);
   const [reason, setReason] = useState("");
+  const [summary, setSummary] = useState("");
+  const [shareReport, setShareReport] = useState(false);
+  const [reportPending, setReportPending] = useState(false);
   if (!me) return null;
   const companion = me;
   const m = missionById(state, id);
@@ -46,6 +49,19 @@ export default function CompanionMissionPage() {
       setReason("");
     } catch {
       // The shared backend notice explains the failed request.
+    }
+  }
+
+  async function submitReport(event: FormEvent) {
+    event.preventDefault();
+    if (reportPending || !summary.trim()) return;
+    setReportPending(true);
+    try {
+      await mutate("send-visit-report", { missionId: mission.id, summary: summary.trim(), shareReportWithSenior: shareReport });
+    } catch {
+      // The shared backend notice explains the failed request.
+    } finally {
+      setReportPending(false);
     }
   }
 
@@ -94,7 +110,11 @@ export default function CompanionMissionPage() {
           <div className="card-actions">
             {st === "available" ? (
               isCompatible(state, m, companion) ? (
-                <button type="button" className="btn btn-block-mobile" onClick={() => void mutate("offer-help", { missionId: mission.id, companionId: companion.id }).catch(() => undefined)}>
+                <button
+                  type="button"
+                  className="btn btn-block-mobile"
+                  onClick={() => void mutate("offer-help", { missionId: mission.id, companionId: companion.id }).catch(() => undefined)}
+                >
                   <Icon name="heart" /> {t.companion.offer}
                 </button>
               ) : (
@@ -119,7 +139,11 @@ export default function CompanionMissionPage() {
               </>
             ) : null}
             {st === "confirmed" && past ? (
-              <button type="button" className="btn" onClick={() => void mutate("complete-mission", { missionId: mission.id }).catch(() => undefined)}>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => void mutate("complete-mission", { missionId: mission.id }).catch(() => undefined)}
+              >
                 <Icon name="check" /> {t.companion.complete}
               </button>
             ) : null}
@@ -176,6 +200,43 @@ export default function CompanionMissionPage() {
           )}
         </section>
       </div>
+      {st === "done" ? (
+        <section className="card" aria-labelledby="companion-visit-report">
+          <h2 id="companion-visit-report">{t.visitReport.title}</h2>
+          {v.visitReport ? (
+            <>
+              <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{v.visitReport.summary}</p>
+              <p className="muted small" role="status">
+                {v.visitReport.shareReportWithSenior ? t.visitReport.sentToSenior : t.visitReport.sentToFamily}
+              </p>
+            </>
+          ) : (
+            <form className="form" onSubmit={submitReport}>
+              <div className="field">
+                <label htmlFor="report-summary">{t.visitReport.summary}</label>
+                <textarea
+                  id="report-summary"
+                  className="input"
+                  value={summary}
+                  onChange={(event) => setSummary(event.target.value)}
+                  maxLength={300}
+                  rows={3}
+                  required
+                />
+              </div>
+              <label className="checkbox">
+                <input type="checkbox" checked={shareReport} onChange={(event) => setShareReport(event.target.checked)} />
+                {t.visitReport.shareWithSenior}
+              </label>
+              <div className="row">
+                <button type="submit" className="btn" disabled={reportPending || !summary.trim()}>
+                  {t.visitReport.send}
+                </button>
+              </div>
+            </form>
+          )}
+        </section>
+      ) : null}
     </div>
   );
 }
