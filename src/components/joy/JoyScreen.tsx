@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { useI18n } from "@/i18n";
 import type { AssistantRequest, AssistantResponse } from "@/lib/ai/schema";
 import { dayKey } from "@/lib/format";
-import { joinProposal, joyMoodProposals, proposalsFor, type JoyMood, type Proposal } from "@/lib/joy/proposals";
+import { joinProposal, joyMoodProposals, joySuggestions, proposalsFor, type JoyMood, type Proposal } from "@/lib/joy/proposals";
 import { greeting, keywords, proposalCard, proposalLine } from "@/lib/joy/script";
 import { eligibleActivities, rankActivities } from "@/lib/matching";
 import { attendees, seatsLeft } from "@/lib/selectors";
@@ -19,9 +19,10 @@ import { useStore } from "@/lib/store";
 import type { Category, DayKey, User } from "@/lib/types";
 import { Icon } from "../Icon";
 import { JoyCheckIn } from "./JoyCheckIn";
+import { JoyConversation } from "./JoyConversation";
 import { JoyWave } from "./JoyWave";
 import { ProposalSheet, type Confirmation } from "./ProposalSheet";
-import { useJoyVoice, type JoyStatus } from "./useJoyVoice";
+import { useJoyVoice, type JoyMessage, type JoyStatus } from "./useJoyVoice";
 
 const normalize = (text: string) =>
   ` ${text
@@ -40,27 +41,32 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
   const { t, f, locale } = useI18n();
   const x = useMemo(() => ({ t, f, locale }), [t, f, locale]);
 
-  const [extraIds, setExtraIds] = useState<string[]>([]);
+  const [extraIds, setExtraIds] = useState<string[] | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
   const [sheetId, setSheetId] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [showText, setShowText] = useState(false);
+  const [intro, setIntro] = useState<JoyMessage | null>(null);
   const [mood, setMood] = useState<JoyMood | null>(null);
   const textInput = useRef<HTMLInputElement>(null);
   const checkInStart = useRef<HTMLButtonElement>(null);
+  const search = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (showText) textInput.current?.focus();
+    if (showText && textInput.current?.getClientRects().length) textInput.current.focus();
   }, [showText]);
+
+  useEffect(() => () => search.current?.abort(), []);
 
   const proposals: Proposal[] = useMemo(() => {
     const base = proposalsFor(state, viewer, seniorId);
     if (viewer.role !== "senior") return base;
     const eligible = new Set(eligibleActivities(state, viewer).map((a) => a.id));
-    const extras = extraIds.filter((id) => eligible.has(id)).map((id) => joinProposal(state, viewer, id));
+    const extras = (extraIds ?? []).filter((id) => eligible.has(id)).map((id) => joinProposal(state, viewer, id));
     const checkIn = mood ? joyMoodProposals(state, viewer, mood) : [];
     return Array.from(new Map([...extras, ...checkIn, ...base].map((proposal) => [proposal.id, proposal])).values());
   }, [state, viewer, seniorId, extraIds, mood]);
+  const suggestions = useMemo(() => joySuggestions(proposals), [proposals]);
 
   const proposalsRef = useRef(proposals);
   const opening = greeting(state, viewer, proposals, x);
@@ -103,19 +109,22 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
         history: [],
         candidates,
       };
+      search.current?.abort();
+      const request = new AbortController();
+      search.current = request;
       try {
         const res = await fetch("/api/assistant", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(body),
+          signal: request.signal,
         });
         if (!res.ok) return null;
         const out = (await res.json()) as AssistantResponse;
-        const ids = out.suggestions.map((s) => s.activityId);
-        if (ids.length) {
-          setExtraIds((prev) => Array.from(new Set([...ids, ...prev])));
-          setFocusId(`join:${ids[0]}`);
-        }
+        if (request.signal.aborted) return null;
+        const ids = out.suggestions.slice(0, 2).map((s) => s.activityId);
+        setExtraIds(ids);
+        setFocusId(ids.length ? `join:${ids[0]}` : null);
         return out.clarification ? `${out.reply} ${out.clarification}` : out.reply;
       } catch {
         return null;
@@ -127,7 +136,7 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
   const respond = useCallback(
     async (said: string): Promise<string | null> => {
       const n = normalize(said);
-      const list = proposalsRef.current;
+      const list = joySuggestions(proposalsRef.current);
       const match = findMatch(said);
       const focused = list.find((p) => p.id === focusRef.current) ?? null;
       if (YES.test(n) && !NO.test(n)) {
@@ -174,9 +183,11 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
           wantsGroup: true,
         },
         3,
-      ).filter((r) => !args.day || dayKey(r.item.start) === args.day);
+      )
+        .filter((r) => !args.day || dayKey(r.item.start) === args.day)
+        .slice(0, 2);
       const ids = ranked.map((r) => r.item.id);
-      setExtraIds((prev) => Array.from(new Set([...ids, ...prev])));
+      setExtraIds(ids);
       return ids.map((id) => {
         const p = joinProposal(state, viewer, id);
         return { proposal_id: p.id, line: proposalLine(p, state, viewer, x) };
@@ -210,9 +221,17 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
   );
 
   const startVoice = useCallback(() => {
-    setFocusId(proposals[0]?.id ?? null);
-    voice.start(context());
-  }, [voice, context, proposals]);
+    if (!intro) {
+      setIntro({ source: "joy", text: opening, time: Date.now() });
+      setFocusId(suggestions[0]?.id ?? null);
+    }
+    voice.start(context(), !intro);
+  }, [voice, context, suggestions, opening, intro]);
+
+  function openWriting() {
+    if (!intro) setIntro({ source: "joy", text: opening, time: Date.now() });
+    setShowText(true);
+  }
 
   function onConfirmed(c: Confirmation) {
     setSheetId(null);
@@ -228,7 +247,11 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
   }
 
   function endConversation() {
+    search.current?.abort();
     voice.stop();
+    setIntro(null);
+    setExtraIds(null);
+    setFocusId(null);
     setShowText(false);
     setText("");
     window.requestAnimationFrame(() => {
@@ -247,19 +270,57 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
   };
   const voiceSession = voice.active && !voice.textOnly;
   const sheet = proposals.find((p) => p.id === sheetId) ?? null;
-  const focusedSuggestion = proposals.slice(2).find((proposal) => proposal.id === focusId);
-  const visibleSuggestions = focusedSuggestion ? [proposals[0], focusedSuggestion] : proposals.slice(0, 2);
+  const focusedSuggestion = suggestions.slice(2).find((proposal) => proposal.id === focusId);
+  const visibleSuggestions = focusedSuggestion ? [suggestions[0], focusedSuggestion] : suggestions.slice(0, 2);
+  const conversationSuggestions =
+    extraIds === null ? visibleSuggestions : proposals.filter((p) => p.kind === "join" && extraIds.includes(p.activityId));
+  const recording =
+    voiceSession && (voice.mode === "realtime" ? voice.micOn && voice.status !== "connecting" : voice.status === "listening");
+  const canSpeak =
+    recording ||
+    (voice.ready &&
+      voice.status !== "thinking" &&
+      voice.status !== "connecting" &&
+      (!voiceSession || voice.mode === "realtime" || (voice.canListen && voice.status === "waiting")));
+
+  function speakInConversation() {
+    setShowText(false);
+    if (!voiceSession) startVoice();
+    else if (voice.mode === "realtime") voice.toggleMic();
+    else if (recording) voice.stopListening();
+    else voice.listen();
+  }
+
+  function selectProposal(proposal: Proposal) {
+    setFocusId(proposal.id);
+    setSheetId(proposal.id);
+  }
 
   return (
-    <div className="joy-page" data-conversation={voice.active || showText}>
-      <JoyCheckIn
-        mood={mood}
-        ready={voice.ready}
-        startRef={checkInStart}
-        onMood={setMood}
-        onSpeak={startVoice}
-        onWrite={() => setShowText(true)}
-      />
+    <div className="joy-page" data-conversation={Boolean(intro)}>
+      <JoyCheckIn mood={mood} ready={voice.ready} startRef={checkInStart} onMood={setMood} onSpeak={startVoice} onWrite={openWriting} />
+      {intro ? (
+        <JoyConversation
+          viewer={viewer}
+          state={state}
+          messages={voice.messages}
+          intro={intro}
+          liveReply={voice.liveReply}
+          status={voice.status}
+          error={voice.error}
+          suggestions={conversationSuggestions}
+          onSelect={selectProposal}
+          onSpeak={speakInConversation}
+          recording={recording}
+          canSpeak={canSpeak}
+          showText={showText}
+          onWrite={() => setShowText(!showText)}
+          text={text}
+          onText={setText}
+          onSubmit={onSubmit}
+          onEnd={endConversation}
+        />
+      ) : null}
       <header className="joy-page-head">
         <button type="button" className="icon-btn joy-close mobile-ui" aria-label={t.joy.checkIn.back} onClick={endConversation}>
           <Icon name="close" />
@@ -313,10 +374,10 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
                 <button
                   type="button"
                   className="btn btn-sm"
-                  onClick={voice.listen}
-                  disabled={voice.status === "listening" || voice.status === "speaking"}
+                  onClick={recording ? voice.stopListening : voice.listen}
+                  disabled={voice.status !== "listening" && voice.status !== "waiting"}
                 >
-                  <Icon name="mic" size={20} /> {t.joy.speak}
+                  <Icon name="mic" size={20} /> {recording ? t.joy.conversation.stopListening : t.joy.speak}
                 </button>
               ) : null}
               {voice.mode === "realtime" ? (
@@ -330,7 +391,12 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
             </div>
           )}
 
-          <button type="button" className="link-btn joy-write" aria-expanded={showText} onClick={() => setShowText(!showText)}>
+          <button
+            type="button"
+            className="link-btn joy-write"
+            aria-expanded={showText}
+            onClick={() => (showText ? setShowText(false) : openWriting())}
+          >
             <Icon name="chat" size={18} /> {t.mobile.typeToJoy}
           </button>
           {showText ? (
@@ -387,10 +453,7 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
                   type="button"
                   className={`proposal${focusId === p.id ? " focused" : ""}`}
                   data-kind={p.kind}
-                  onClick={() => {
-                    setFocusId(p.id);
-                    setSheetId(p.id);
-                  }}
+                  onClick={() => selectProposal(p)}
                 >
                   <span className="proposal-top">
                     <span className="cat-icon" aria-hidden="true">

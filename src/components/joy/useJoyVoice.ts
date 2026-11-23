@@ -12,6 +12,8 @@ import type { Locale } from "@/lib/types";
 export type JoyMode = "realtime" | "demo";
 export type JoyStatus = "off" | "connecting" | "speaking" | "listening" | "thinking" | "waiting" | "error";
 
+export type JoyMessage = { source: "joy" | "voice" | "text"; text: string; time: number };
+
 export interface JoyContext {
   role: "senior" | "companion" | "family";
   firstName: string;
@@ -54,6 +56,8 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
   const [textOnly, setTextOnly] = useState(false);
   const [joyLine, setJoyLine] = useState("");
   const [userLine, setUserLine] = useState("");
+  const [messages, setMessages] = useState<JoyMessage[]>([]);
+  const [liveReply, setLiveReply] = useState("");
   const [error, setError] = useState<"start" | "mic" | null>(null);
   const [micOn, setMicOn] = useState(true);
   const [canListen, setCanListen] = useState(false);
@@ -63,6 +67,7 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
   const activeRef = useRef(false);
+  const micEnabledRef = useRef(true);
   const textOnlyRef = useRef(false);
   const sessionRun = useRef(0);
   const recognitionRef = useRef<Recognition | null>(null);
@@ -74,7 +79,13 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
   const transcriptRef = useRef("");
   const micDeniedRef = useRef(false);
   /** Latest version of handleText, used by the speech recognition callback. */
-  const handleTextRef = useRef<(text: string) => Promise<void>>(async () => {});
+  const handleTextRef = useRef<(text: string, source: "voice" | "text") => Promise<void>>(async () => {});
+
+  const appendMessage = useCallback((source: JoyMessage["source"], text: string) => {
+    if (!text.trim()) return;
+    const message = { source, text, time: Date.now() };
+    setMessages((previous) => [...previous, message]);
+  }, []);
 
   /* Is GPT Realtime configured on the server? */
   useEffect(() => {
@@ -96,7 +107,7 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
   const listenOnce = useCallback(() => {
     if (!activeRef.current) return;
     const r = createRecognition();
-    if (!r || micDeniedRef.current) {
+    if (!r || micDeniedRef.current || !micEnabledRef.current) {
       setStatus("waiting");
       return;
     }
@@ -107,12 +118,13 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
     r.continuous = false;
     let heard = false;
     r.onresult = (e) => {
+      if (recognitionRef.current !== r || !activeRef.current) return;
       heard = true;
       const text = Array.from(e.results)
         .map((res) => res[0].transcript)
         .join(" ")
         .trim();
-      if (text) void handleTextRef.current(text);
+      if (text) void handleTextRef.current(text, "voice");
     };
     r.onerror = (e) => {
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {
@@ -121,6 +133,8 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
       }
     };
     r.onend = () => {
+      if (recognitionRef.current !== r) return;
+      recognitionRef.current = null;
       if (!heard && activeRef.current) setStatus("waiting");
     };
     try {
@@ -131,9 +145,27 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
     }
   }, [locale]);
 
+  const setMicEnabled = useCallback((enabled: boolean) => {
+    micEnabledRef.current = enabled;
+    setMicOn(enabled);
+    streamRef.current?.getAudioTracks().forEach((track) => (track.enabled = enabled));
+  }, []);
+
+  const listen = useCallback(() => {
+    setMicEnabled(true);
+    listenOnce();
+  }, [listenOnce, setMicEnabled]);
+
+  const stopListening = useCallback(() => {
+    setMicEnabled(false);
+    recognitionRef.current?.stop();
+    setStatus((current) => (current === "listening" ? "waiting" : current));
+  }, [setMicEnabled]);
+
   const speak = useCallback(
     (text: string) => {
       setJoyLine(text);
+      appendMessage("joy", text);
       if (textOnlyRef.current) {
         setStatus("waiting");
         return;
@@ -163,7 +195,7 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
         timerRef.current = window.setTimeout(done, estimate);
       }
     },
-    [locale, listenOnce],
+    [locale, listenOnce, appendMessage],
   );
 
   /* ---------- Realtime engine (GPT Realtime over WebRTC) ---------- */
@@ -173,24 +205,34 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
     if (dc && dc.readyState === "open") dc.send(JSON.stringify(event));
   };
 
-  const stop = useCallback(() => {
-    activeRef.current = false;
-    sessionRun.current++;
-    textOnlyRef.current = false;
-    setTextOnly(false);
-    clearTimer();
-    recognitionRef.current?.abort();
-    recognitionRef.current = null;
-    if (typeof window !== "undefined") window.speechSynthesis?.cancel();
-    dcRef.current?.close();
-    pcRef.current?.close();
-    streamRef.current?.getTracks().forEach((tr) => tr.stop());
-    if (audioRef.current) audioRef.current.srcObject = null;
-    dcRef.current = null;
-    pcRef.current = null;
-    streamRef.current = null;
-    setStatus("off");
-  }, []);
+  const stop = useCallback(
+    (clearMessages = true) => {
+      activeRef.current = false;
+      sessionRun.current++;
+      textOnlyRef.current = false;
+      setTextOnly(false);
+      clearTimer();
+      recognitionRef.current?.abort();
+      recognitionRef.current = null;
+      if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+      dcRef.current?.close();
+      pcRef.current?.close();
+      streamRef.current?.getTracks().forEach((tr) => tr.stop());
+      if (audioRef.current) audioRef.current.srcObject = null;
+      dcRef.current = null;
+      pcRef.current = null;
+      streamRef.current = null;
+      transcriptRef.current = "";
+      setLiveReply("");
+      setJoyLine("");
+      setUserLine("");
+      if (clearMessages) setMessages([]);
+      setMicEnabled(true);
+      setError(null);
+      setStatus("off");
+    },
+    [setMicEnabled],
+  );
 
   async function onRealtimeEvent(raw: string) {
     let ev: { type: string; [k: string]: unknown };
@@ -206,22 +248,30 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
         break;
       case "output_audio_buffer.stopped":
       case "input_audio_buffer.speech_started":
-        setStatus("listening");
+        setStatus(micEnabledRef.current ? "listening" : "waiting");
         break;
       case "response.output_audio_transcript.delta":
       case "response.audio_transcript.delta":
         transcriptRef.current += String(ev.delta ?? "");
         setJoyLine(transcriptRef.current);
+        setLiveReply(transcriptRef.current);
         break;
       case "response.output_audio_transcript.done":
-      case "response.audio_transcript.done":
-        setJoyLine(String(ev.transcript ?? transcriptRef.current));
+      case "response.audio_transcript.done": {
+        const reply = String(ev.transcript ?? transcriptRef.current);
+        setJoyLine(reply);
+        appendMessage("joy", reply);
         transcriptRef.current = "";
+        setLiveReply("");
         break;
-      case "conversation.item.input_audio_transcription.completed":
-        setUserLine(String(ev.transcript ?? ""));
+      }
+      case "conversation.item.input_audio_transcription.completed": {
+        const transcription = String(ev.transcript ?? "");
+        setUserLine(transcription);
+        appendMessage("voice", transcription);
         setStatus("thinking");
         break;
+      }
       case "response.output_item.done": {
         // A finished function call from the model: { type: "function_call", name, call_id, arguments }.
         const item = ev.item as { type?: string; name?: string; call_id?: string; arguments?: string } | undefined;
@@ -254,7 +304,7 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
     }
   }
 
-  async function startRealtime(context: JoyContext, run: number) {
+  async function startRealtime(context: JoyContext, run: number, greet: boolean) {
     const tokenRes = await fetch("/api/joy/session", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -287,10 +337,13 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
     }
     const dc = pc.createDataChannel("oai-events");
     dcRef.current = dc;
-    dc.onmessage = (e) => void onRealtimeEvent(String(e.data));
+    dc.onmessage = (e) => {
+      if (sessionRun.current === run) void onRealtimeEvent(String(e.data));
+    };
     dc.onopen = () => {
-      // Joy speaks first: the greeting is in the session instructions.
-      send({ type: "response.create" });
+      if (sessionRun.current !== run) return;
+      if (greet) send({ type: "response.create" });
+      else setStatus(streamRef.current ? "listening" : "waiting");
     };
 
     const offer = await pc.createOffer();
@@ -310,8 +363,9 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
 
   /** Must be called from a tap (browsers only play sound after a user gesture). */
   const start = useCallback(
-    (context: JoyContext) => {
+    (context: JoyContext, greet = true) => {
       const run = ++sessionRun.current;
+      setMicEnabled(true);
       setError(null);
       setUserLine("");
       textOnlyRef.current = false;
@@ -322,23 +376,26 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
         setJoyLine("");
         // Create the audio element inside the tap so the browser allows playback.
         audioRef.current = audioRef.current ?? new Audio();
-        startRealtime(context, run).catch((err) => {
+        startRealtime(context, run, greet).catch((err) => {
           if (sessionRun.current !== run) return;
           console.error("[joy] realtime start failed, falling back to demo voice", err);
-          stop();
+          stop(false);
           activeRef.current = true;
           setMode("demo");
-          speak(context.greeting);
+          if (greet) speak(context.greeting);
+          else listenOnce();
         });
-      } else {
+      } else if (greet) {
         speak(context.greeting);
+      } else {
+        listenOnce();
       }
     },
-    [mode, speak, stop, locale],
+    [mode, speak, stop, locale, listenOnce, setMicEnabled],
   );
 
   const handleText = useCallback(
-    async (text: string) => {
+    async (text: string, source: "voice" | "text" = "text") => {
       const clean = text.trim();
       if (!clean) return;
       if (!activeRef.current) {
@@ -346,6 +403,7 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
         setTextOnly(true);
       }
       setUserLine(clean);
+      appendMessage(source, clean);
       if (mode === "realtime" && dcRef.current) {
         send({ type: "conversation.item.create", item: { type: "message", role: "user", content: [{ type: "input_text", text: clean }] } });
         send({ type: "response.create" });
@@ -361,7 +419,7 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
       if (reply) speak(reply);
       else setStatus("waiting");
     },
-    [mode, speak],
+    [mode, speak, appendMessage],
   );
   handleTextRef.current = handleText;
 
@@ -386,11 +444,12 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
   );
 
   const toggleMic = useCallback(() => {
-    const next = !micOn;
-    setMicOn(next);
-    streamRef.current?.getAudioTracks().forEach((tr) => (tr.enabled = next));
-    if (!next) recognitionRef.current?.abort();
-  }, [micOn]);
+    if (micEnabledRef.current) stopListening();
+    else {
+      setMicEnabled(true);
+      setStatus((current) => (current === "waiting" ? "listening" : current));
+    }
+  }, [setMicEnabled, stopListening]);
 
   useEffect(() => stop, [stop]);
 
@@ -402,13 +461,16 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
     textOnly,
     joyLine,
     userLine,
+    messages,
+    liveReply,
     error,
     micOn,
     canListen,
     start,
     stop,
     sendText: handleText,
-    listen: listenOnce,
+    listen,
+    stopListening,
     notify,
     toggleMic,
   };

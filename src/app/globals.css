@@ -3871,6 +3871,9 @@ select.input {
 
 /* ---------- Joy (voice assistant) ---------- */
 
+.joy-chat {
+  display: none;
+}
 .joy-page {
   display: grid;
   gap: 32px;

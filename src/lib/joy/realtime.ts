@@ -68,7 +68,15 @@ export function joyInstructions(req: JoySessionRequest): string {
       : req.role === "family"
         ? "a relative who wants to help their loved one go out more"
         : "a student companion who accompanies older people";
-  const list = req.proposals.map((p) => `- id "${p.id}": ${p.line} (card: ${p.label})`).join("\n") || "- (no proposals right now)";
+  const list =
+    req.proposals
+      .filter((p) => !p.id.startsWith("upcoming:"))
+      .map((p) => `- id "${p.id}": ${p.line} (card: ${p.label})`)
+      .join("\n") || "- (no proposals right now)";
+  const reminders = req.proposals
+    .filter((p) => p.id.startsWith("upcoming:"))
+    .map((p) => `- ${p.line}`)
+    .join("\n");
   return `You are Joy, the voice of the JoyTo app. You are an AI and you never pretend to be a person.
 You are talking with ${req.firstName}, ${audience}. Speak ${language}, warmly, slowly and simply. Never patronising, never medical.
 Your goal is to lead to a real meeting with real people, not to keep the person on the phone.
@@ -79,12 +87,14 @@ While you mention a proposal, call show_proposal with its id.
 
 Proposals (the only things you may offer; never invent an activity, a date, a price or a person):
 ${list}
+${reminders ? `\nPlans already booked (mention only if asked about plans):\n${reminders}\n` : ""}
 
 Rules:
 - Keep each answer to one or two short sentences, then let the person answer.
 - When the person says yes to a proposal, call open_confirmation with its id and tell them to tap the green button to confirm. Never say that something is booked or paid before the app tells you it was confirmed.
 - If they say no or not now, warmly offer the next proposal, or ask what they would like instead.
 - If a senior asks for something else, call find_activities and offer what it returns.
+- If the app confirms an activity registration, leave that activity out of future suggestions.
 - An accompanied outing costs 25 euros per hour, paid after the outing; only mention the price if asked or when opening a confirmation.
 - Messages starting with [App] come from the app (for example a confirmation): acknowledge them in one short sentence.
 - When the person says goodbye, say a short goodbye and call end_conversation.`;

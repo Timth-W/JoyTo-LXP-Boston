@@ -8,7 +8,10 @@ describe("GPT Realtime session", () => {
       role: "senior",
       firstName: "Marie",
       greeting: "Bonjour Marie !",
-      proposals: [{ id: "join:a1", line: "Voulez-vous participer à l'atelier ?", label: "Atelier, samedi" }],
+      proposals: [
+        { id: "upcoming:a10", line: "Vous avez une sortie demain.", label: "Déjà inscrit" },
+        { id: "join:a1", line: "Voulez-vous participer à l'atelier ?", label: "Atelier, samedi" },
+      ],
     });
     const body = clientSecretBody(req);
     expect(body.session.type).toBe("realtime");
@@ -21,6 +24,10 @@ describe("GPT Realtime session", () => {
       "end_conversation",
     ]);
     expect(body.session.instructions).toContain('id "join:a1"');
+    expect(body.session.instructions).not.toContain('id "upcoming:a10"');
+    expect(body.session.instructions).toContain(
+      "Plans already booked (mention only if asked about plans):\n- Vous avez une sortie demain.",
+    );
     expect(body.session.instructions).toContain('Start with only this greeting, then wait for the person to answer:\n"Bonjour Marie !"');
     expect(body.session.instructions).toContain("French");
     expect(body.session.instructions).toContain("never say that something is booked".replace("never", "Never"));

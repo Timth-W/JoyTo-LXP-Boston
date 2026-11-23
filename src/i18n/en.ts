@@ -658,6 +658,17 @@ export const en = {
     error: "The voice could not start. You can still tap the suggestions.",
     micDenied: "Microphone not allowed. You can type your answer instead.",
     proposalsTitle: "Joy's suggestions",
+    conversation: {
+      title: "Conversation with Joy",
+      lead: "Find outings you'll enjoy with a little help from Joy.",
+      write: "Write",
+      placeholder: "Write to Joy…",
+      listening: "Listening",
+      stopListening: "Stop listening",
+      speaking: "Speaking",
+      ready: "Ready",
+      voiceMessage: "Voice message transcript",
+    },
     noProposals: "Nothing new for now.",
     you: "You",
     greeting: {

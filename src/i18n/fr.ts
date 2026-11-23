@@ -653,6 +653,17 @@ export const fr: Dict = {
     error: "La voix n'a pas pu démarrer. Vous pouvez toucher les propositions.",
     micDenied: "Micro non autorisé. Vous pouvez écrire votre réponse.",
     proposalsTitle: "Les propositions de Joy",
+    conversation: {
+      title: "Conversation avec Joy",
+      lead: "Votre complice pour trouver des sorties qui vous font plaisir.",
+      write: "Écrire",
+      placeholder: "Écrivez à Joy…",
+      listening: "À l’écoute",
+      stopListening: "Couper le micro",
+      speaking: "Joy parle",
+      ready: "Prêt",
+      voiceMessage: "Transcription du message vocal",
+    },
     noProposals: "Rien de nouveau pour l'instant.",
     you: "Vous",
     greeting: {

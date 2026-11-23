@@ -149,6 +149,31 @@ html[data-larger-text] body {
 .action-dialog p {
   color: var(--muted);
 }
+
+.family-connect {
+  max-width: 760px;
+}
+.family-summary .stats {
+  margin: 0;
+}
+.family-summary .stat-value {
+  margin: 0;
+  font-size: 1.25rem;
+}
+.family-gift {
+  align-self: start;
+  gap: 10px;
+}
+.family-gift h2 {
+  gap: 9px;
+  font-size: 1.15rem;
+}
+.family-gift > .btn {
+  align-self: flex-start;
+  max-width: 100%;
+  text-align: center;
+  white-space: normal;
+}
 .signup-progress {
   color: var(--forest-dark);
   font-size: 0.92rem;
@@ -512,6 +537,94 @@ html[data-larger-text] body {
   }
   .mobile-role-home .card .stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .family-dashboard {
+    gap: 16px;
+    max-width: 620px;
+    width: 100%;
+    margin-inline: auto;
+  }
+  .family-dashboard .page-head {
+    display: grid;
+    align-items: start;
+    gap: 12px;
+  }
+  .family-dashboard .page-head h1 {
+    font-size: clamp(1.8rem, 7vw, 2.3rem);
+    overflow-wrap: anywhere;
+  }
+  .family-dashboard .family-book-action {
+    max-width: 100%;
+    padding-inline: 20px;
+    text-align: center;
+    white-space: normal;
+  }
+  .family-dashboard .card.family-summary {
+    gap: 14px;
+    padding: 16px;
+    border-radius: var(--radius);
+  }
+  .family-summary .person-name {
+    font-size: 1.16rem;
+    overflow-wrap: anywhere;
+  }
+  .family-summary .stat {
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+  .family-summary .stat-value {
+    color: var(--navy);
+    font-weight: 850;
+    line-height: 1.18;
+    overflow-wrap: anywhere;
+  }
+  .family-dashboard-content {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .family-upcoming {
+    min-width: 0;
+    gap: 12px;
+  }
+  .family-upcoming > .card.list {
+    padding: 0 !important;
+    gap: 10px;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+  .family-upcoming .list > li {
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+  .family-upcoming .list-link {
+    min-height: var(--tap);
+    padding: 16px;
+    gap: 12px;
+    border-radius: var(--radius);
+    overflow-wrap: anywhere;
+  }
+  .family-upcoming .list-title {
+    color: var(--navy);
+    font-size: 1.08rem;
+  }
+  .family-upcoming .date-block {
+    flex: none;
+    width: 58px;
+  }
+  .family-dashboard .card.family-gift {
+    padding: 16px;
+    border-radius: var(--radius);
+  }
+  .family-gift p {
+    font-size: 0.95rem;
+  }
+  .family-gift > .btn {
+    padding-block: 6px;
   }
   .companion-dashboard {
     display: grid !important;
@@ -940,6 +1053,286 @@ html[data-larger-text] body {
   }
   .joy-page[data-conversation="true"] > .joy-checkin {
     display: none !important;
+  }
+  .joy-page[data-conversation="true"] > :is(.joy-page-head, .joy-stage, .joy-suggestions) {
+    display: none;
+  }
+  .joy-chat {
+    --joy-dock-space: 76px;
+    display: grid;
+    gap: 16px;
+    padding-bottom: var(--joy-dock-space);
+    min-width: 0;
+  }
+  .joy-chat:has(.joy-chat-form) {
+    --joy-dock-space: 136px;
+  }
+  .joy-chat-hero {
+    position: relative;
+    isolation: isolate;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto 1fr;
+    align-items: start;
+    min-height: 138px;
+    padding: 14px 0 12px;
+    gap: 8px;
+  }
+  .joy-chat-heading {
+    grid-row: 1 / 3;
+    z-index: 1;
+    width: 100%;
+  }
+  .joy-chat-heading h1 {
+    font-size: clamp(1.3rem, 5.4vw, 1.85rem);
+    line-height: 1.12;
+    margin: 0 0 7px;
+    font-weight: 900;
+  }
+  .joy-chat-heading p {
+    color: var(--muted);
+    font-size: 1rem;
+    line-height: 1.3;
+    max-width: 23ch;
+    margin: 0;
+  }
+  .joy-chat-art {
+    position: absolute;
+    width: clamp(94px, 33%, 158px);
+    height: auto;
+    inset-inline-end: -9px;
+    bottom: -5px;
+    z-index: -1;
+    pointer-events: none;
+  }
+  .joy-chat-end {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    padding: 4px 12px;
+    min-height: var(--tap);
+    gap: 4px;
+    font-size: .88rem;
+  }
+  .joy-chat-presence {
+    grid-column: 2;
+    grid-row: 2;
+    align-items: center;
+    display: grid;
+    justify-items: center;
+    gap: 5px;
+    margin-inline-end: clamp(32px, 12vw, 76px);
+  }
+  .joy-chat-presence .joy-orb {
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    border: 1px solid var(--sage);
+    box-shadow: var(--shadow);
+    background: var(--surface-2);
+  }
+  .joy-chat-presence > span:last-child {
+    border-radius: 99px;
+    background: var(--forest-soft);
+    color: var(--forest-dark);
+    padding: 3px 9px;
+    text-align: center;
+    max-width: 12ch;
+    font-size: .76rem;
+    font-weight: 800;
+    line-height: 1.15;
+  }
+  .joy-chat-thread {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 11px;
+  }
+  .joy-chat-message {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    scroll-margin-bottom: var(--joy-dock-space);
+  }
+  .joy-chat-message:not([data-source="joy"]) {
+    flex-direction: row-reverse;
+  }
+  .joy-chat-logo {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    box-shadow: var(--shadow);
+  }
+  .joy-chat-bubble {
+    min-width: 0;
+    max-width: min(84%, 560px);
+    border: 1px solid var(--surface);
+    border-radius: 19px;
+    padding: 9px 13px 8px;
+    background: color-mix(in srgb, var(--coral-soft) 62%, var(--surface-2));
+    color: var(--heading);
+    font-size: 1rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+  .joy-chat-message:not([data-source="joy"]) .joy-chat-bubble {
+    background: var(--forest-soft);
+  }
+  .joy-chat-bubble strong {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--coral-text);
+    font-weight: 900;
+    margin-bottom: 3px;
+  }
+  .joy-chat-message:first-child .joy-chat-bubble p {
+    font-weight: 800;
+  }
+  .joy-chat-bubble p {
+    margin: 0;
+  }
+  .joy-chat-bubble time {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: .78rem;
+  }
+  .joy-chat-message:not([data-source="joy"]) time {
+    text-align: end;
+  }
+  .joy-chat-voice {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    color: var(--forest-dark);
+    margin-bottom: 6px;
+  }
+  .joy-chat-voice > .icon {
+    width: 32px;
+    height: 32px;
+    padding: 5px;
+    border-radius: 50%;
+    background: var(--forest);
+    color: var(--surface);
+  }
+  .joy-chat-voice + p {
+    font-style: italic;
+  }
+  .joy-chat-suggestions {
+    display: grid;
+    gap: 9px;
+  }
+  .joy-chat-suggestions h2 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    font-size: 1rem;
+    color: var(--coral-text);
+    text-align: center;
+    margin: 0;
+  }
+  .joy-chat-suggestions h2::before,
+  .joy-chat-suggestions h2::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: var(--border-strong);
+  }
+  .joy-chat-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 9px;
+    min-height: var(--tap);
+    padding: 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    color: var(--heading);
+    text-align: start;
+  }
+  .joy-chat-card-copy {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+  .joy-chat-card-copy > span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted);
+    font-size: .875rem;
+  }
+  .joy-chat-card-copy > span .icon {
+    flex-shrink: 0;
+  }
+  .joy-chat-card-copy > strong {
+    font-size: 1.06rem;
+  }
+  .joy-chat-card-copy > .joy-chat-category {
+    color: var(--coral-text);
+    font-weight: 800;
+  }
+  .joy-chat-card-copy > .joy-chat-participants {
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 3px;
+  }
+  .joy-chat-arrow {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    color: var(--forest-dark);
+    background: var(--surface-2);
+    align-self: start;
+  }
+  .joy-chat-dock {
+    position: fixed;
+    z-index: 35;
+    inset-inline: max(9px, env(safe-area-inset-left, 0px)) max(9px, env(safe-area-inset-right, 0px));
+    bottom: calc(var(--tabbar-offset) + 7px);
+    width: min(620px, calc(100% - 18px));
+    margin-inline: auto;
+    padding: 7px;
+    display: grid;
+    gap: 7px;
+    border: 1px solid var(--border);
+    border-radius: 23px;
+    background: var(--surface-2);
+    box-shadow: var(--shadow-lg);
+  }
+  .joy-chat-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+  }
+  .joy-chat-actions .btn {
+    min-width: 0;
+    padding-inline: 5px;
+    gap: 4px;
+    font-size: .92rem;
+  }
+  .joy-chat-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+  .joy-chat-form .btn {
+    padding-inline: 12px;
   }
   .joy-checkin {
     display: block !important;

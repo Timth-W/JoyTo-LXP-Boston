@@ -1,19 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { BookingForm } from "@/components/BookingForm";
 import { SeniorSwitcher } from "@/components/SeniorSwitcher";
-import { BackLink, Empty, PageHead } from "@/components/ui";
+import { BackLink, Empty, Loading, PageHead } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import { useActiveSenior } from "@/lib/useActiveSenior";
 import { useStore } from "@/lib/store";
 
 export default function FamilyBookPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <FamilyBooking />
+    </Suspense>
+  );
+}
+
+function FamilyBooking() {
   const { me } = useStore();
   const { t } = useI18n();
   const router = useRouter();
-  const { seniors, senior, choose } = useActiveSenior();
+  const requestedSeniorId = useSearchParams().get("senior");
+  const { seniors, senior, choose } = useActiveSenior(requestedSeniorId);
   if (!me) return null;
 
   return (

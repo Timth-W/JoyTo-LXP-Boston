@@ -3,7 +3,7 @@ import { makeFormatters } from "@/i18n";
 import { en } from "@/i18n/en";
 import { fr } from "@/i18n/fr";
 import { register } from "../actions";
-import { joyMoodProposals, proposalsFor } from "../joy/proposals";
+import { joyMoodProposals, joySuggestions, proposalsFor } from "../joy/proposals";
 import { greeting, when } from "../joy/script";
 import { createSeed } from "../seed";
 import { userById } from "../selectors";
@@ -33,8 +33,15 @@ describe("Joy proposals", () => {
   it("drops an activity once the senior has signed up", () => {
     const s = seed();
     const marie = userById(s, "u-marie")!;
+    expect(joySuggestions(proposalsFor(s, marie)).map((p) => p.id)).toContain("join:a1");
     register(s, "a1", marie.id, "assistant");
-    expect(proposalsFor(s, marie).map((p) => p.id)).not.toContain("join:a1");
+    const proposals = proposalsFor(s, marie);
+    expect(proposals.some((p) => p.id === "upcoming:a10")).toBe(true);
+    const suggestions = joySuggestions(proposals);
+    expect(suggestions.length).toBeGreaterThan(0);
+    const activityIds = suggestions.flatMap((p) => ("activityId" in p && p.activityId ? [p.activityId] : []));
+    expect(activityIds).not.toContain("a10");
+    expect(activityIds).not.toContain("a1");
   });
 
   it("prioritizes a gentler outing after a low check-in while respecting registrations and capacity", () => {

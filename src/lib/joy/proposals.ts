@@ -133,6 +133,11 @@ export function proposalsFor(s: State, user: User, seniorId?: string): Proposal[
   return companionProposals(s, user);
 }
 
+/** Upcoming outings can be recalled in conversation. Suggestions offer new actions. */
+export function joySuggestions(proposals: readonly Proposal[]): Proposal[] {
+  return proposals.filter((proposal) => proposal.kind !== "upcoming");
+}
+
 /** Extra "join" proposals for activities found during the conversation. */
 export function joinProposal(s: State, senior: User, activityId: string): Proposal {
   const mates = attendees(s, activityId)
