@@ -56,15 +56,18 @@ describe("Joy proposals", () => {
     expect(proposalsFor(s, userById(s, "u-karim")!).map((p) => p.id)).toContain("mission:m1");
   });
 
-  it("greets by first name with relative dates, in both languages", () => {
+  it("opens with one short question even when several proposals are available", () => {
     const s = seed();
     const marie = userById(s, "u-marie")!;
     const list = proposalsFor(s, marie);
-    const hello = greeting(s, marie, list, EN).replace(/\s/g, " ");
-    expect(hello).toMatch(/^Hello Marie! What would you like to do this week\?/);
-    expect(hello).toContain("“Tea and crosswords” tomorrow at 5 pm");
-    expect(hello).toContain("Or would you like someone to go with you");
-    expect(greeting(s, marie, list, FR).replace(/\s/g, " ")).toContain("« Thé et mots croisés » demain à 17 h");
+    expect(list.length).toBeGreaterThan(1);
+    expect(greeting(s, marie, list, EN)).toBe("Hello Marie! What would you like to do?");
+    expect(greeting(s, marie, list, FR)).toBe("Bonjour Marie ! Qu’aimeriez-vous faire ?");
+    expect(greeting(s, marie, [], EN)).toBe("Hello Marie! What would you like to do?");
+  });
+
+  it("formats dates and times in both languages", () => {
+    const s = seed();
     expect(when("2026-11-14T14:30", s.now, EN).replace(/\s/g, " ")).toBe("on Saturday at 2:30 pm");
     expect(when("2026-11-28T14:00", s.now, FR)).toBe("le samedi 28 novembre à 14 h");
   });

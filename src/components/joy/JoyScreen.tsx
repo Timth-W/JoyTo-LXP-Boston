@@ -63,6 +63,7 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
   }, [state, viewer, seniorId, extraIds, mood]);
 
   const proposalsRef = useRef(proposals);
+  const opening = greeting(state, viewer, proposals, x);
   proposalsRef.current = proposals;
   const focusRef = useRef(focusId);
   focusRef.current = focusId;
@@ -199,13 +200,13 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
     () => ({
       role: viewer.role,
       firstName: viewer.firstName,
-      greeting: greeting(state, viewer, proposals, x),
+      greeting: opening,
       proposals: proposals.map((p) => {
         const c = proposalCard(p, state, viewer, x);
         return { id: p.id, line: proposalLine(p, state, viewer, x), label: `${c.title}, ${c.subtitle}` };
       }),
     }),
-    [state, viewer, proposals, x],
+    [state, viewer, proposals, x, opening],
   );
 
   const startVoice = useCallback(() => {
@@ -248,12 +249,6 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
   const sheet = proposals.find((p) => p.id === sheetId) ?? null;
   const focusedSuggestion = proposals.slice(2).find((proposal) => proposal.id === focusId);
   const visibleSuggestions = focusedSuggestion ? [proposals[0], focusedSuggestion] : proposals.slice(0, 2);
-  const hello =
-    viewer.role === "senior"
-      ? t.joy.greeting.senior(viewer.firstName)
-      : viewer.role === "companion"
-        ? t.joy.greeting.companion(viewer.firstName)
-        : t.joy.greeting.family(viewer.firstName, "");
 
   return (
     <div className="joy-page" data-conversation={voice.active || showText}>
@@ -298,7 +293,7 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
             {t.joy.name}
           </p>
           <p className="joy-caption" aria-live="polite">
-            {voice.joyLine || (viewer.role === "family" ? t.joy.lead : hello)}
+            {voice.joyLine || opening}
           </p>
           {!voice.active ? <p className="joy-conversation-hint">{t.joy.conversationHint}</p> : null}
           {voice.userLine ? (

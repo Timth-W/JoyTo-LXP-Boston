@@ -303,44 +303,45 @@ html[data-larger-text] body {
     grid-template-rows: auto 1fr;
     gap: 10px;
     padding: max(12px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
-    background: var(--bg);
   }
   .welcome-language {
     justify-self: end;
     position: static;
   }
-  .mobile-welcome {
-    display: grid !important;
+  .welcome .welcome-content {
     width: min(540px, 100%);
     gap: 18px;
-    justify-items: center;
     align-self: center;
   }
-  .mobile-welcome-art {
-    width: min(100%, 350px);
-    position: relative;
-    overflow: hidden;
-    aspect-ratio: 210 / 161;
-    border-radius: var(--radius-lg);
+  .welcome .welcome-emblem {
+    max-width: 100%;
+    height: 210px;
   }
-  .mobile-welcome-art img {
-    object-fit: contain;
+  .welcome .welcome-orbit {
+    width: 190px;
+    height: 190px;
   }
-  .mobile-welcome-copy {
-    display: grid;
+  .welcome .welcome-mark {
+    width: 134px;
+    height: 134px;
+  }
+  .welcome .welcome-mark > svg {
+    width: 108px;
+    height: 108px;
+  }
+  .welcome .welcome-sprig {
+    width: 78px;
+    height: 146px;
+  }
+  .welcome .welcome-copy {
     gap: 10px;
-    text-align: center;
     max-width: 31ch;
-    animation: mobile-arrive var(--motion-enter) ease-out both;
   }
-  .mobile-welcome-copy h1 {
+  .welcome .welcome-copy h1 {
     font-size: clamp(1.85rem, 7vw, 2.45rem);
   }
-  .mobile-welcome-copy p {
-    color: var(--muted);
-  }
   .mobile-welcome-actions {
-    display: grid;
+    display: grid !important;
     justify-items: center;
     gap: 2px;
     width: 100%;
@@ -1233,7 +1234,6 @@ html[data-larger-text] body {
   .mobile-home-actions,
   .profile-dashboard,
   .activity-detail-head,
-  .mobile-welcome-copy,
   .action-dialog[open],
   .joy-wave,
   .joy-wave i {

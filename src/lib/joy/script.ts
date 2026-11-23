@@ -136,23 +136,14 @@ export function proposalCard(p: Proposal, s: State, viewer: User, x: JoyText): P
   }
 }
 
-/** What Joy says first: hello, a question, then the two or three most useful proposals. */
+/** A short opening that gives the person the next turn. */
 export function greeting(s: State, viewer: User, proposals: Proposal[], x: JoyText): string {
   const { t } = x;
-  const seniorId = proposals.find((p) => "seniorId" in p && p.seniorId !== viewer.id);
-  const seniorName = seniorId && "seniorId" in seniorId ? (userById(s, seniorId.seniorId)?.firstName ?? "") : "";
-  const hello =
-    viewer.role === "senior"
-      ? t.joy.greeting.senior(viewer.firstName)
-      : viewer.role === "family"
-        ? t.joy.greeting.family(viewer.firstName, seniorName)
-        : t.joy.greeting.companion(viewer.firstName);
-  if (!proposals.length) return `${hello} ${t.joy.nothing}`;
-  const lines = proposals
-    .slice(0, 3)
-    .map((p) => proposalLine(p, s, viewer, x))
-    .filter(Boolean);
-  return [hello, ...lines, t.joy.closing].join(" ");
+  if (viewer.role === "senior") return t.joy.greeting.senior(viewer.firstName);
+  if (viewer.role === "companion") return t.joy.greeting.companion(viewer.firstName);
+  const proposal = proposals.find((p) => "seniorId" in p && p.seniorId !== viewer.id);
+  const seniorName = proposal && "seniorId" in proposal ? (userById(s, proposal.seniorId)?.firstName ?? "") : "";
+  return t.joy.greeting.family(viewer.firstName, seniorName);
 }
 
 /** Words that let the demo voice recognise which proposal the person is talking about. */

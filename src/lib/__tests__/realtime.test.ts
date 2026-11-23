@@ -21,6 +21,7 @@ describe("GPT Realtime session", () => {
       "end_conversation",
     ]);
     expect(body.session.instructions).toContain('id "join:a1"');
+    expect(body.session.instructions).toContain('Start with only this greeting, then wait for the person to answer:\n"Bonjour Marie !"');
     expect(body.session.instructions).toContain("French");
     expect(body.session.instructions).toContain("never say that something is booked".replace("never", "Never"));
   });

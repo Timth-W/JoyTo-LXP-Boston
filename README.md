@@ -5,7 +5,7 @@
 
 Application Next.js complète, en **anglais par défaut avec bascule français**, responsive (téléphone, tablette, ordinateur), avec trois espaces : **Senior**, **Accompagnant** et **Famille**.
 
-**Fonctionnalité phare : Joy**, l'assistante vocale. On touche « Talk with Joy » et Joy prend la parole : « Hello Marie! What would you like to do this week? You have Tea and crosswords tomorrow at 5 pm. Would you like to join the garden workshop on Saturday, with Jeanne and André? Or would you like someone to go with you? » Chaque proposition s'affiche en carte ; un toucher (ou un « oui » à Joy) ouvre la confirmation, et seul le bouton vert réserve.
+**Fonctionnalité phare — Joy**, l’assistante vocale. Au toucher de « Talk with Joy », Joy salue la personne et lui pose une question courte. Les idées s’affichent en cartes. Un toucher sur une carte ou un « oui » à Joy ouvre la confirmation. La réservation demande ensuite de toucher le bouton vert.
 
 ---
 

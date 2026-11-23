@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/i18n";
@@ -8,7 +7,7 @@ import { HOME_BY_ROLE } from "@/lib/constants";
 import { useStore } from "@/lib/store";
 import { Icon } from "./Icon";
 import { LanguageSwitch } from "./LanguageSwitch";
-import { Logo, LogoMark, Wordmark } from "./Logo";
+import { LogoMark, Wordmark } from "./Logo";
 
 const SESSION_KEY = "joyto-welcome-seen";
 
@@ -58,42 +57,11 @@ export function WelcomeEntrance({ children }: { children: ReactNode }) {
   return (
     <>
       {phase !== "open" ? (
-        <main className={`welcome${phase === "leaving" ? " welcome-leaving" : ""}`} aria-label={t.mobile.welcomeTitle}>
+        <main className={`welcome${phase === "leaving" ? " welcome-leaving" : ""}`} aria-labelledby="welcome-title">
           <div className="welcome-language">
             <LanguageSwitch />
           </div>
-          <div className="mobile-ui mobile-welcome">
-            <Logo size={50} />
-            <div className="mobile-welcome-art">
-              <Image src="/joyto-welcome.png" alt="" fill unoptimized priority />
-            </div>
-            <div className="mobile-welcome-copy">
-              <h1 id="mobile-welcome-title">{t.mobile.welcomeTitle}</h1>
-              <p>{t.mobile.welcomeLead}</p>
-            </div>
-            <div className="mobile-welcome-actions">
-              <Link
-                href={me ? HOME_BY_ROLE[me.role] : "/signup"}
-                className="btn btn-block"
-                aria-disabled={!hydrated}
-                onNavigate={(event) => {
-                  if (hydrated) rememberWelcome();
-                  else event.preventDefault();
-                }}
-              >
-                {me ? t.landing.continueAs(me.firstName) : t.mobile.start} <Icon name="arrowRight" />
-              </Link>
-              {!me && (
-                <Link href="/login" className="link-btn" onClick={rememberWelcome}>
-                  {t.landing.login}
-                </Link>
-              )}
-              <button type="button" className="link-btn" onClick={enter} disabled={phase === "leaving"}>
-                {t.landing.discover}
-              </button>
-            </div>
-          </div>
-          <div className="welcome-content desktop-ui">
+          <div className="welcome-content">
             <div className="welcome-emblem" aria-hidden="true">
               <div className="welcome-orbit" />
               <svg className="welcome-sprig welcome-sprig-left" viewBox="0 0 100 180" fill="none">
@@ -118,13 +86,40 @@ export function WelcomeEntrance({ children }: { children: ReactNode }) {
             </div>
             <div className="welcome-copy">
               <Wordmark size={54} />
-              <p className="hand">{t.common.tagline}</p>
-              <h1 id="welcome-title">{t.landing.welcomeTitle}</h1>
-              <p className="welcome-description">{t.landing.welcomeText}</p>
+              <p className="hand desktop-ui">{t.common.tagline}</p>
+              <h1 id="welcome-title">
+                <span className="desktop-ui">{t.landing.welcomeTitle}</span>
+                <span className="mobile-ui">{t.mobile.welcomeTitle}</span>
+              </h1>
+              <p className="welcome-description">
+                <span className="desktop-ui">{t.landing.welcomeText}</span>
+                <span className="mobile-ui">{t.mobile.welcomeLead}</span>
+              </p>
             </div>
-            <button type="button" className="btn welcome-enter" onClick={enter} disabled={phase === "leaving"}>
+            <button type="button" className="btn welcome-enter desktop-ui" onClick={enter} disabled={phase === "leaving"}>
               {t.landing.welcomeEnter} <Icon name="arrowRight" size={22} />
             </button>
+            <div className="mobile-ui mobile-welcome-actions">
+              <Link
+                href={me ? HOME_BY_ROLE[me.role] : "/signup"}
+                className="btn btn-block"
+                aria-disabled={!hydrated}
+                onNavigate={(event) => {
+                  if (hydrated) rememberWelcome();
+                  else event.preventDefault();
+                }}
+              >
+                {me ? t.landing.continueAs(me.firstName) : t.mobile.start} <Icon name="arrowRight" />
+              </Link>
+              {!me && (
+                <Link href="/login" className="link-btn" onClick={rememberWelcome}>
+                  {t.landing.login}
+                </Link>
+              )}
+              <button type="button" className="link-btn" onClick={enter} disabled={phase === "leaving"}>
+                {t.landing.discover}
+              </button>
+            </div>
           </div>
         </main>
       ) : null}
