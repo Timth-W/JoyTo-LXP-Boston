@@ -34,6 +34,23 @@ Commandes utiles :
 | `npm run check` | les trois vérifications d'un coup : types, tests, build |
 | `npm run format` | remet le code en forme (Prettier) |
 
+### Aperçu sur un téléphone avec Expo Go
+
+L’aperçu dans `mobile/` charge JoyTo en WebView et se connecte au même serveur Next.js. Utilisez Expo Go compatible avec le SDK 54 et Node.js 20.19.4 ou supérieur pour Expo. [Compatibilité d’Expo Go](https://docs.expo.dev/troubleshooting/expo-go-version-mismatch/)
+
+1. À la racine, démarrez JoyTo avec `npm run dev -- --hostname 0.0.0.0` et laissez-le tourner.
+2. Dans un deuxième terminal, lancez l’aperçu.
+
+```sh
+cd mobile
+npm ci
+npm start
+```
+
+3. Sur le même réseau Wi-Fi, ouvrez le QR code dans Expo Go et choisissez un profil démo. L’adresse de JoyTo est déduite de celle de Metro.
+
+L’aperçu local HTTP est destiné aux données de démonstration. Pour tester une connexion par mot de passe ou le micro de Joy, définissez `EXPO_PUBLIC_JOYTO_URL` sur l’adresse HTTPS de votre instance JoyTo avant de démarrer Expo. La prise en charge du micro dépend aussi du téléphone et de la WebView.
+
 ## 2. Comptes et démo
 
 - **Mode démo** (pour le jury et pour vous) : sur la page d'accueil, section *Try the demo*, cliquez un profil pour entrer sans mot de passe.

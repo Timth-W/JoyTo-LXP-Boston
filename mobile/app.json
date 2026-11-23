@@ -1,0 +1,9 @@
+{
+  "expo": {
+    "name": "JoyTo",
+    "slug": "joyto-preview",
+    "version": "1.0.0",
+    "platforms": ["android", "ios"],
+    "userInterfaceStyle": "light"
+  }
+}

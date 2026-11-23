@@ -4,6 +4,14 @@ import type { Dict } from "./en";
 const plural = (n: number, one: string, many: string) => `${n} ${n <= 1 ? one : many}`;
 
 export const fr: Dict = {
+  expoPreview: {
+    title: "Essayez JoyTo sur votre téléphone",
+    lead: "Choisissez un profil de démonstration pour découvrir JoyTo.",
+    unavailable: "JoyTo est indisponible",
+    networkHelp: "Vérifiez que le serveur JoyTo tourne et que votre téléphone et votre ordinateur sont sur le même réseau Wi-Fi.",
+    urlHelp: "Lancez l’aperçu Expo sur le réseau local ou configurez une adresse HTTPS pour JoyTo.",
+    retry: "Réessayer",
+  },
   mobile: {
     welcomeTitle: "Sortir, partager, se sentir bien.",
     welcomeLead: "Découvrez les activités près de chez vous, avec un accompagnant si vous le souhaitez.",

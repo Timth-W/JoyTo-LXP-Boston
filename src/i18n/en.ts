@@ -20,6 +20,14 @@ export interface NotifContext {
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 export const en = {
+  expoPreview: {
+    title: "Try JoyTo on your phone",
+    lead: "Choose a demo profile to explore JoyTo.",
+    unavailable: "JoyTo is unavailable",
+    networkHelp: "Check that the JoyTo server is running and that your phone and computer are on the same Wi-Fi network.",
+    urlHelp: "Start the Expo preview on your local network or set an HTTPS address for JoyTo.",
+    retry: "Try again",
+  },
   mobile: {
     welcomeTitle: "Go out. Meet people. Feel good.",
     welcomeLead: "Find activities near you and go with a companion if you wish.",
