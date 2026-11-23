@@ -5,7 +5,16 @@
  */
 import { daysBetween } from "../format";
 import { rankActivities, rankMissions } from "../matching";
-import { attendees, giftMinutesLeft, isPast, pendingOffers, seniorsOf, upcomingOutings, userById } from "../selectors";
+import {
+  attendees,
+  giftMinutesLeft,
+  isPast,
+  nextCompanionMission,
+  pendingOffers,
+  seniorsOf,
+  upcomingOutings,
+  userById,
+} from "../selectors";
 import type { Intent, State, User } from "../types";
 
 export type Proposal =
@@ -99,10 +108,7 @@ function familyProposals(s: State, family: User, seniorId?: string): Proposal[] 
 
 function companionProposals(s: State, companion: User): Proposal[] {
   const list: Proposal[] = [];
-  const confirmed = s.missions
-    .filter((m) => m.status === "confirmed" && !isPast(s, m.start))
-    .filter((m) => s.offers.some((o) => o.missionId === m.id && o.companionId === companion.id && o.status === "accepted"))
-    .sort((a, b) => a.start.localeCompare(b.start))[0];
+  const confirmed = nextCompanionMission(s, companion.id);
   if (confirmed && daysBetween(s.now.slice(0, 10), confirmed.start.slice(0, 10)) <= SOON_DAYS) {
     list.push({
       id: `upcoming:${confirmed.id}`,

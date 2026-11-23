@@ -246,6 +246,8 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
   };
   const voiceSession = voice.active && !voice.textOnly;
   const sheet = proposals.find((p) => p.id === sheetId) ?? null;
+  const focusedSuggestion = proposals.slice(2).find((proposal) => proposal.id === focusId);
+  const visibleSuggestions = focusedSuggestion ? [proposals[0], focusedSuggestion] : proposals.slice(0, 2);
   const hello =
     viewer.role === "senior"
       ? t.joy.greeting.senior(viewer.firstName)
@@ -380,9 +382,9 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
             {t.joy.yourChoice}
           </span>
         </div>
-        {proposals.length ? (
+        {visibleSuggestions.length ? (
           <div className="proposal-grid">
-            {proposals.map((p) => {
+            {visibleSuggestions.map((p) => {
               const c = proposalCard(p, state, viewer, x);
               return (
                 <button

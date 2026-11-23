@@ -9,7 +9,7 @@ import { applyBackendAction, isBackendMutationAction } from "../backend-actions"
 import { appStateStore, createBackendStore, parseStatePayload } from "../backend";
 import { createSession, SESSION_COOKIE } from "../backend-session";
 import { toLocalIso } from "../format";
-import { createSeed } from "../seed";
+import { createDecemberDemoActivities, createSeed } from "../seed";
 import { missionById, missionForCompanion } from "../selectors";
 import type { State } from "../types";
 
@@ -64,6 +64,19 @@ describe("server-side state store", () => {
     expect(parseStatePayload(JSON.stringify(seed))).toEqual(seed);
     expect(parseStatePayload({ ...seed, version: 3 })).toEqual(seed);
     expect(() => parseStatePayload({ version: -1 })).toThrow(/unsupported version or shape/i);
+  });
+
+  it("adds missing catalogue entries to a version 4 database and preserves existing records", () => {
+    const seed = createSeed();
+    const [existing, ...missing] = createDecemberDemoActivities();
+    const addedIds = new Set([existing.id, ...missing.map((activity) => activity.id)]);
+    const oldActivities = seed.activities.filter((activity) => !addedIds.has(activity.id));
+    const updated = { ...existing, capacity: 6 };
+    const legacy = { ...seed, version: 4, activities: [...oldActivities, updated] };
+
+    const migrated = parseStatePayload(JSON.stringify(legacy));
+    expect(migrated).toEqual({ ...legacy, version: seed.version, activities: [...legacy.activities, ...missing] });
+    expect(parseStatePayload(migrated)).toEqual(migrated);
   });
 
   it("keeps separate browser identities and strips private report fields from the HTTP response", async () => {

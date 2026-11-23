@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import mysql from "mysql2/promise";
 import { STATE_VERSION } from "./constants";
-import { createSeed } from "./seed";
+import { createDecemberDemoActivities, createSeed } from "./seed";
 import type { State } from "./types";
 
 export interface BackendStore {
@@ -15,7 +15,7 @@ function normalizeState(raw: unknown): State {
   if (!raw || typeof raw !== "object") throw new Error("MySQL app_state payload is invalid.");
   const state = raw as State;
   if (
-    (state.version !== STATE_VERSION && state.version !== 3) ||
+    (state.version !== STATE_VERSION && state.version !== 4 && state.version !== 3) ||
     !Array.isArray(state.users) ||
     !Array.isArray(state.activities) ||
     !Array.isArray(state.registrations) ||
@@ -23,8 +23,11 @@ function normalizeState(raw: unknown): State {
   ) {
     throw new Error("MySQL app_state payload has an unsupported version or shape.");
   }
-  // These fields are additive. Old missions keep manual acceptance and have no report.
-  return state.version === STATE_VERSION ? state : { ...state, version: STATE_VERSION };
+  if (state.version === STATE_VERSION) return state;
+  // Add the new catalogue entries to existing databases, preserving all stored records.
+  const existingIds = new Set(state.activities.map((activity) => activity.id));
+  const additions = createDecemberDemoActivities().filter((activity) => !existingIds.has(activity.id));
+  return { ...state, version: STATE_VERSION, activities: [...state.activities, ...additions] };
 }
 
 export function parseStatePayload(payload: unknown): State {

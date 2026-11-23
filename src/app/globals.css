@@ -3384,6 +3384,7 @@ select.input {
     flex-shrink: 0;
   }
   .landing-explainer {
+    margin-block-start: 16px;
     border-top: 1px solid var(--border-strong);
   }
   .landing-explainer summary {

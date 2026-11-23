@@ -1,7 +1,7 @@
 import type { Category, DayKey, OutingType, Relation, Role, SectorId } from "./types";
 
 export const APP_NAME = "JoyTo";
-export const STATE_VERSION = 4;
+export const STATE_VERSION = 5;
 
 export const CATEGORY_IDS: Category[] = ["gardening", "cooking", "games", "culture", "walk", "music", "coffee"];
 export const OUTING_TYPE_IDS: OutingType[] = ["activity", "walk", "errands", "company"];

@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useI18n } from "@/i18n";
-import { activityById, OWNER_TONE, ownerStatus, type OutingItem } from "@/lib/selectors";
+import { activityById, attendees, OWNER_TONE, ownerStatus, type OutingItem } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
 import { CATEGORY_ICON, Icon } from "./Icon";
-import { Badge } from "./ui";
+import { Avatar, Badge } from "./ui";
 import { DateBadge } from "./MobileUI";
 
 /** Activities and accompanied outings in one chronological list. */
@@ -14,11 +14,13 @@ export function OutingList({
   outingBase,
   linkActivities = true,
   featured = false,
+  showParticipants = false,
 }: {
   items: OutingItem[];
   outingBase: string;
   linkActivities?: boolean;
   featured?: boolean;
+  showParticipants?: boolean;
 }) {
   const { state } = useStore();
   const { t, f } = useI18n();
@@ -28,15 +30,22 @@ export function OutingList({
         const date = item.date;
         if (item.kind === "activity") {
           const a = item.activity;
+          const participants = showParticipants ? attendees(state, a.id) : [];
           const body = (
             <>
               <DateBadge date={date} />
               <span className="list-body">
-                {featured ? <span className="outing-list-kind">{t.categories[a.category]}</span> : null}
+                {featured ? (
+                  <span className="outing-list-kind">
+                    {showParticipants ? <Icon name={CATEGORY_ICON[a.category]} size={16} className="mobile-ui" /> : null}
+                    {t.categories[a.category]}
+                  </span>
+                ) : null}
                 <span className="list-title" style={{ display: "block" }}>
                   {f.text(a.title)}
                 </span>
                 <span className="muted small" style={{ display: "block" }}>
+                  {showParticipants ? <Icon name="clock" size={16} className="mobile-ui outing-list-clock" /> : null}
                   {f.date(date)}
                   {featured ? (
                     <span className="outing-list-place">
@@ -47,6 +56,16 @@ export function OutingList({
                     ` · ${f.text(a.place)}`
                   )}
                 </span>
+                {participants.length > 0 ? (
+                  <span className="mobile-ui outing-participants">
+                    <span className="avatar-stack" aria-hidden="true">
+                      {participants.slice(0, 3).map((person) => (
+                        <Avatar key={person.id} user={{ ...person, lastName: "" }} size={29} />
+                      ))}
+                    </span>
+                    <Badge tone="ok">{t.activityDetail.participantCount(participants.length)}</Badge>
+                  </span>
+                ) : null}
               </span>
               <span className={featured ? "outing-list-arrow" : "cat-icon"} aria-hidden="true">
                 <Icon name={featured ? "chevronRight" : CATEGORY_ICON[a.category]} />

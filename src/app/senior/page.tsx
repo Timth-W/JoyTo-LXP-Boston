@@ -6,6 +6,7 @@ import { ActivityCard } from "@/components/ActivityCard";
 import { Icon } from "@/components/Icon";
 import { JoyHero } from "@/components/joy/JoyHero";
 import { OutingList } from "@/components/OutingList";
+import { SeniorHomeActions } from "@/components/SeniorHomeActions";
 import { Empty } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import { rankActivities } from "@/lib/matching";
@@ -44,26 +45,7 @@ export default function SeniorHome() {
         </span>
       </header>
 
-      <div className="mobile-ui mobile-home-actions">
-        <Link href="/senior/joy" className="mobile-joy-feature">
-          <span className="mobile-action-icon">
-            <Icon name="mic" />
-          </span>
-          <span>
-            <strong>{t.joy.start}</strong>
-            <span>{t.senior.joyDescription}</span>
-          </span>
-          <Icon name="arrowRight" size={22} />
-        </Link>
-        <div className="mobile-shortcuts">
-          <Link href="/senior/activities">
-            <Icon name="calendar" /> <strong>{t.senior.browseActivities}</strong>
-          </Link>
-          <Link href="/senior/outings/new?from=home">
-            <Icon name="users" /> <strong>{t.mobile.companion}</strong>
-          </Link>
-        </div>
-      </div>
+      <SeniorHomeActions />
 
       {withOffers.map((m) => (
         <Link key={m.id} href={`/senior/outings/${m.id}`} className="notice notice-warn" style={{ textDecoration: "none" }}>
@@ -105,17 +87,32 @@ export default function SeniorHome() {
         </aside>
       </div>
 
-      {next.length ? (
-        <section className="stack senior-home-section" aria-labelledby="next-outing-title">
-          <div className="section-title">
-            <h2 id="next-outing-title">{t.senior.nextOuting}</h2>
-            <Link href="/senior/outings" className="link-btn">
-              {t.common.seeAll} <Icon name="chevronRight" size={18} />
+      <section
+        className={`stack senior-home-section senior-home-next${next.length ? "" : " mobile-ui"}`}
+        aria-labelledby="next-outing-title"
+      >
+        <div className="section-title">
+          <h2 id="next-outing-title">
+            <span className="desktop-ui">{t.senior.nextOuting}</span>
+            <span className="mobile-ui">
+              <Icon name="calendar" size={22} /> {t.mobile.homeNextOuting}
+            </span>
+          </h2>
+          <Link href="/senior/outings" className="link-btn">
+            {t.common.seeAll} <Icon name="arrowRight" size={18} />
+          </Link>
+        </div>
+        {next.length ? (
+          <OutingList items={next} outingBase="/senior/outings" featured showParticipants />
+        ) : (
+          <div className="card senior-next-empty">
+            <p className="muted">{t.senior.noUpcoming}</p>
+            <Link href="/senior/activities" className="link-btn">
+              {t.senior.browseActivities} <Icon name="arrowRight" size={18} />
             </Link>
           </div>
-          <OutingList items={next} outingBase="/senior/outings" featured />
-        </section>
-      ) : null}
+        )}
+      </section>
 
       {suggestions.length ? (
         <section className="stack senior-home-section" aria-labelledby="suggestions-title">

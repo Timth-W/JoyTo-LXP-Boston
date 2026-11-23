@@ -1,11 +1,91 @@
 import { DEMO_NOW, STATE_VERSION } from "./constants";
-import type { State, User } from "./types";
+import type { Activity, State, User } from "./types";
 
 /** Demo data. Every person and place is fictional. Every demo password is "demo1234". */
 
 const CREATED = "2026-10-01T09:00";
 
 const demoUser = (u: Omit<User, "createdAt" | "demo">): User => ({ ...u, createdAt: CREATED, demo: true });
+
+export function createDecemberDemoActivities(): Activity[] {
+  return [
+    {
+      id: "a11",
+      title: { en: "Holiday card workshop", fr: "Atelier cartes de vœux" },
+      category: "culture",
+      start: "2026-12-03T14:30",
+      place: { en: "Station arts centre", fr: "Maison des arts de la Gare" },
+      sector: "station",
+      capacity: 12,
+      organizer: { en: "Paper and Colours club", fr: "Club Papier et Couleurs" },
+      description: {
+        en: "Make a card for someone you care about. Materials and examples are provided.",
+        fr: "Créez une carte pour un proche. Le matériel et des modèles sont fournis.",
+      },
+      map: { x: 89, y: 73 },
+    },
+    {
+      id: "a12",
+      title: { en: "Music quiz at the café", fr: "Quiz musical au café" },
+      category: "games",
+      start: "2026-12-05T15:00",
+      place: { en: "Market Café", fr: "Café du Marché" },
+      sector: "centre",
+      capacity: 16,
+      organizer: { en: "Players' club", fr: "Club des Joueurs" },
+      description: {
+        en: "Guess familiar songs in small teams. Come on your own or with a friend.",
+        fr: "Devinez des chansons connues en petites équipes. Venez seul ou avec un ami.",
+      },
+      map: { x: 56, y: 38 },
+    },
+    {
+      id: "a13",
+      title: { en: "Acoustic concert at the library", fr: "Concert acoustique à la médiathèque" },
+      category: "music",
+      start: "2026-12-09T16:00",
+      place: { en: "University district library", fr: "Médiathèque du quartier universitaire" },
+      sector: "university",
+      capacity: 24,
+      organizer: { en: "University music club", fr: "Club de musique universitaire" },
+      description: {
+        en: "Local musicians play a short guitar and violin concert. Seating is available throughout.",
+        fr: "Des musiciens du quartier jouent de la guitare et du violon. Des places assises sont prévues pour tout le concert.",
+      },
+      map: { x: 76, y: 15 },
+    },
+    {
+      id: "a14",
+      title: { en: "A gentle riverside walk", fr: "Balade au bord de la rivière" },
+      category: "walk",
+      start: "2026-12-12T10:30",
+      place: { en: "Riverside footbridge", fr: "Passerelle des Berges" },
+      sector: "station",
+      capacity: 14,
+      organizer: { en: "Riverside walking group", fr: "Groupe de marche des Berges" },
+      description: {
+        en: "A 45-minute walk on a flat path, with a break on the benches by the river.",
+        fr: "Une promenade de 45 minutes sur un chemin plat, avec une pause sur les bancs au bord de l’eau.",
+      },
+      map: { x: 70, y: 70 },
+    },
+    {
+      id: "a15",
+      title: { en: "Houseplant cuttings workshop", fr: "Atelier boutures et plantes d’intérieur" },
+      category: "gardening",
+      start: "2026-12-13T10:00",
+      place: { en: "Lime Tree greenhouse", fr: "Serre des Tilleuls" },
+      sector: "gardens",
+      capacity: 10,
+      organizer: { en: "Lime Tree association", fr: "Association Les Tilleuls" },
+      description: {
+        en: "Learn to take a cutting and bring a plant home. Pots and tools are provided.",
+        fr: "Apprenez à faire une bouture et repartez avec une plante. Les pots et les outils sont fournis.",
+      },
+      map: { x: 21, y: 18 },
+    },
+  ];
+}
 
 export function createSeed(): State {
   return {
@@ -273,6 +353,7 @@ export function createSeed(): State {
         description: { en: "Grandma's recipe, tasting on site.", fr: "Recette de grand-mère, dégustation sur place." },
         map: { x: 36, y: 54 },
       },
+      ...createDecemberDemoActivities(),
     ],
     registrations: [
       { id: "r1", activityId: "a0", seniorId: "u-marie", via: "catalogue" },

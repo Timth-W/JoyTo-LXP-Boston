@@ -76,6 +76,21 @@ export const missionById = (s: State, id: string): MissionView | undefined => s.
 export const offersFor = (s: State, missionId: string): Offer[] => s.offers.filter((o) => o.missionId === missionId);
 export const pendingOffers = (s: State, missionId: string) => offersFor(s, missionId).filter((o) => o.status === "pending");
 export const acceptedOffer = (s: State, missionId: string) => s.offers.find((o) => o.missionId === missionId && o.status === "accepted");
+export function nextCompanionMission(s: State, companionId: string) {
+  return s.missions
+    .filter(
+      (mission) => mission.status === "confirmed" && !isPast(s, mission.start) && acceptedOffer(s, mission.id)?.companionId === companionId,
+    )
+    .sort((a, b) => a.start.localeCompare(b.start))[0];
+}
+
+export function missionsWithCompanionOffer(s: State, companionId: string) {
+  const missionIds = new Set(
+    s.offers.filter((offer) => offer.companionId === companionId && offer.status !== "withdrawn").map((offer) => offer.missionId),
+  );
+  return s.missions.filter((mission) => missionIds.has(mission.id)).sort((a, b) => b.start.localeCompare(a.start));
+}
+
 export const companionOf = (s: State, missionId: string): User | undefined => userById(s, acceptedOffer(s, missionId)?.companionId);
 export const paymentFor = (s: State, missionId: string) => s.payments.find((p) => p.missionId === missionId);
 export const giftMinutesLeft = (s: State, seniorId: string) =>
@@ -96,7 +111,7 @@ export function visitReportFor(s: State, m: Mission, viewer: User | undefined) {
 export function companionEarningsMissions(s: State, companionId: string) {
   return s.missions.filter((m: MissionView) => {
     if (acceptedOffer(s, m.id)?.companionId !== companionId) return false;
-    const captured = m.companionPaymentCaptured ?? (paymentFor(s, m.id)?.status === "captured");
+    const captured = m.companionPaymentCaptured ?? paymentFor(s, m.id)?.status === "captured";
     return m.status === "confirmed" || m.status === "done" || (m.lateCancel === true && captured);
   });
 }
