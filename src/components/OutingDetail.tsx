@@ -6,8 +6,8 @@ import { useI18n } from "@/i18n";
 import { cancellationOutcome } from "@/lib/pricing";
 import {
   activityById,
+  canViewOwnedMission,
   companionOf,
-  isLinked,
   isPast,
   missionById,
   OWNER_TONE,
@@ -43,9 +43,7 @@ export function OutingDetail({ missionId, viewer, backHref }: { missionId: strin
   }, [cancelling]);
 
   const m = missionById(state, missionId);
-  const allowed =
-    m && (viewer.id === m.seniorId || viewer.id === m.payerId || viewer.id === m.bookedById || isLinked(state, m.seniorId, viewer.id));
-  if (!m || !allowed) {
+  if (!m || !canViewOwnedMission(state, m, viewer.id)) {
     return (
       <Empty action={<Link href={backHref}>{t.common.back}</Link>} icon="alert">
         {t.common.notFound}

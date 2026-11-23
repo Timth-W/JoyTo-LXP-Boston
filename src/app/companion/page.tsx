@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Icon } from "@/components/Icon";
+import { SegmentedControl } from "@/components/MobileUI";
 import { JoyHero } from "@/components/joy/JoyHero";
 import { Badge, Empty, PageHead } from "@/components/ui";
 import { useI18n } from "@/i18n";
@@ -28,7 +29,7 @@ export default function CompanionHome() {
   const list: Mission[] = tab === "reco" ? recommended.map((r) => r.item) : mine;
 
   return (
-    <div className="stack-lg">
+    <div className="stack-lg mobile-role-home">
       <PageHead title={t.companion.hello(companion.firstName)} />
       <JoyHero role="companion" />
 
@@ -39,20 +40,21 @@ export default function CompanionHome() {
         </div>
       ) : null}
       {!companion.availability.length ? (
-        <Link href="/companion/profile" className="notice notice-coral" style={{ textDecoration: "none" }}>
+        <Link href="/companion/profile/availability" className="notice notice-coral" style={{ textDecoration: "none" }}>
           <Icon name="calendar" />
           <span>{t.companion.noAvailability}</span>
         </Link>
       ) : null}
 
-      <div className="segmented" role="group" aria-label={t.nav.missions} style={{ alignSelf: "flex-start" }}>
-        <button type="button" aria-pressed={tab === "reco"} onClick={() => setTab("reco")}>
-          <Icon name="sparkle" size={18} /> {t.companion.recommended} ({recommended.length})
-        </button>
-        <button type="button" aria-pressed={tab === "mine"} onClick={() => setTab("mine")}>
-          <Icon name="heart" size={18} /> {t.companion.myMissions} ({mine.length})
-        </button>
-      </div>
+      <SegmentedControl
+        label={t.nav.missions}
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: "reco", label: `${t.companion.recommended} (${recommended.length})`, icon: "sparkle" },
+          { value: "mine", label: `${t.companion.myMissions} (${mine.length})`, icon: "heart" },
+        ]}
+      />
 
       {list.length ? (
         <div className="grid">

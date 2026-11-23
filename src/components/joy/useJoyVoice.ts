@@ -51,6 +51,7 @@ const LANG: Record<Locale, string> = { en: "en-GB", fr: "fr-FR" };
 export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
   const [mode, setMode] = useState<JoyMode>("demo");
   const [status, setStatus] = useState<JoyStatus>("off");
+  const [textOnly, setTextOnly] = useState(false);
   const [joyLine, setJoyLine] = useState("");
   const [userLine, setUserLine] = useState("");
   const [error, setError] = useState<"start" | "mic" | null>(null);
@@ -62,6 +63,8 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
   const activeRef = useRef(false);
+  const textOnlyRef = useRef(false);
+  const sessionRun = useRef(0);
   const recognitionRef = useRef<Recognition | null>(null);
   const timerRef = useRef<number | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -131,6 +134,10 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
   const speak = useCallback(
     (text: string) => {
       setJoyLine(text);
+      if (textOnlyRef.current) {
+        setStatus("waiting");
+        return;
+      }
       clearTimer();
       const done = () => {
         clearTimer();
@@ -168,6 +175,9 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
 
   const stop = useCallback(() => {
     activeRef.current = false;
+    sessionRun.current++;
+    textOnlyRef.current = false;
+    setTextOnly(false);
     clearTimer();
     recognitionRef.current?.abort();
     recognitionRef.current = null;
@@ -244,7 +254,7 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
     }
   }
 
-  async function startRealtime(context: JoyContext) {
+  async function startRealtime(context: JoyContext, run: number) {
     const tokenRes = await fetch("/api/joy/session", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -252,6 +262,7 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
     });
     if (!tokenRes.ok) throw new Error("token");
     const { value } = (await tokenRes.json()) as { value: string };
+    if (sessionRun.current !== run) return;
 
     const pc = new RTCPeerConnection();
     pcRef.current = pc;
@@ -263,9 +274,14 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
     };
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (pcRef.current !== pc) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       streamRef.current = stream;
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
     } catch {
+      if (pcRef.current !== pc) return;
       setError("mic");
       pc.addTransceiver("audio", { direction: "recvonly" });
     }
@@ -278,6 +294,7 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
     };
 
     const offer = await pc.createOffer();
+    if (pcRef.current !== pc) return;
     await pc.setLocalDescription(offer);
     const sdpRes = await fetch("https://api.openai.com/v1/realtime/calls", {
       method: "POST",
@@ -285,6 +302,7 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
       headers: { Authorization: `Bearer ${value}`, "Content-Type": "application/sdp" },
     });
     if (!sdpRes.ok) throw new Error("sdp");
+    if (pcRef.current !== pc) return;
     await pc.setRemoteDescription({ type: "answer", sdp: await sdpRes.text() });
   }
 
@@ -293,15 +311,19 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
   /** Must be called from a tap (browsers only play sound after a user gesture). */
   const start = useCallback(
     (context: JoyContext) => {
+      const run = ++sessionRun.current;
       setError(null);
       setUserLine("");
+      textOnlyRef.current = false;
+      setTextOnly(false);
       activeRef.current = true;
       if (mode === "realtime") {
         setStatus("connecting");
         setJoyLine("");
         // Create the audio element inside the tap so the browser allows playback.
         audioRef.current = audioRef.current ?? new Audio();
-        startRealtime(context).catch((err) => {
+        startRealtime(context, run).catch((err) => {
+          if (sessionRun.current !== run) return;
           console.error("[joy] realtime start failed, falling back to demo voice", err);
           stop();
           activeRef.current = true;
@@ -319,6 +341,10 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
     async (text: string) => {
       const clean = text.trim();
       if (!clean) return;
+      if (!activeRef.current) {
+        textOnlyRef.current = true;
+        setTextOnly(true);
+      }
       setUserLine(clean);
       if (mode === "realtime" && dcRef.current) {
         send({ type: "conversation.item.create", item: { type: "message", role: "user", content: [{ type: "input_text", text: clean }] } });
@@ -329,9 +355,11 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
       activeRef.current = true;
       recognitionRef.current?.abort();
       setStatus("thinking");
+      const run = sessionRun.current;
       const reply = await handlersRef.current.respond(clean);
+      if (!activeRef.current || sessionRun.current !== run) return;
       if (reply) speak(reply);
-      else if (activeRef.current) setStatus("waiting");
+      else setStatus("waiting");
     },
     [mode, speak],
   );
@@ -371,6 +399,7 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
     mode,
     status,
     active: status !== "off",
+    textOnly,
     joyLine,
     userLine,
     error,

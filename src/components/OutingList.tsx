@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useI18n } from "@/i18n";
-import { toDate } from "@/lib/format";
-import { OWNER_TONE, ownerStatus, type OutingItem } from "@/lib/selectors";
+import { activityById, OWNER_TONE, ownerStatus, type OutingItem } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
 import { CATEGORY_ICON, Icon } from "./Icon";
 import { Badge } from "./ui";
+import { DateBadge } from "./MobileUI";
 
 /** Activities and accompanied outings in one chronological list. */
 export function OutingList({
@@ -30,12 +30,7 @@ export function OutingList({
           const a = item.activity;
           const body = (
             <>
-              <span className="date-block" style={featured ? undefined : { width: 54 }} aria-hidden="true">
-                <span className="date-day" style={featured ? undefined : { fontSize: "1.3rem" }}>
-                  {toDate(date).getDate()}
-                </span>
-                <span className="date-month">{f.month(date)}</span>
-              </span>
+              <DateBadge date={date} />
               <span className="list-body">
                 {featured ? <span className="outing-list-kind">{t.categories[a.category]}</span> : null}
                 <span className="list-title" style={{ display: "block" }}>
@@ -72,19 +67,15 @@ export function OutingList({
         }
         const m = item.mission;
         const st = ownerStatus(state, m);
+        const activity = activityById(state, m.activityId);
         return (
           <li key={`m-${m.id}`}>
             <Link className="list-link" href={`${outingBase}/${m.id}`}>
-              <span className="date-block" style={{ width: featured ? undefined : 54, background: "var(--coral-soft)" }} aria-hidden="true">
-                <span className="date-day" style={featured ? undefined : { fontSize: "1.3rem" }}>
-                  {toDate(date).getDate()}
-                </span>
-                <span className="date-month">{f.month(date)}</span>
-              </span>
+              <DateBadge date={date} warm />
               <span className="list-body">
                 {featured ? <span className="outing-list-kind">{t.outing.companion}</span> : null}
                 <span className="list-title" style={{ display: "block" }}>
-                  {t.outingTypes[m.type]}
+                  {activity ? f.text(activity.title) : t.outingTypes[m.type]}
                 </span>
                 <span className="muted small" style={{ display: "block" }}>
                   {f.date(date)} · {f.duration(m.durationMin)}

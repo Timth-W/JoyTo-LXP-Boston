@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AuthFrame } from "@/components/AuthFrame";
 import { Icon } from "@/components/Icon";
 import { InterestPicker, SectorPicker } from "@/components/ProfileFields";
@@ -26,6 +26,9 @@ export default function SignupPage() {
   const router = useRouter();
 
   const [role, setRole] = useState<Role | null>(null);
+  const [details, setDetails] = useState(false);
+  const stepHeading = useRef<HTMLHeadingElement>(null);
+  const stepped = useRef(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -40,21 +43,29 @@ export default function SignupPage() {
 
   const clear = (key: keyof Errors) => setErrors(({ [key]: _removed, ...rest }) => rest);
 
+  useEffect(() => {
+    if (stepped.current) stepHeading.current?.focus();
+  }, [role, details]);
+
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!role) return;
+    if (!role || busy) return;
     const errs: Errors = {};
     if (!firstName.trim()) errs.firstName = t.auth.errors.firstName;
     if (!lastName.trim()) errs.lastName = t.auth.errors.lastName;
     if (!isValidEmail(email)) errs.email = t.auth.errors.email;
     if (!isValidPassword(password)) errs.password = t.auth.errors.password;
-    if (!consent) errs.consent = t.auth.errors.consent;
+    if (details && !consent) errs.consent = t.auth.errors.consent;
     setErrors(errs);
     if (Object.keys(errs).length) return;
+    if (!details) {
+      setDetails(true);
+      return;
+    }
 
     setBusy(true);
-    const passwordHash = await hashPassword(email, password);
     try {
+      const passwordHash = await hashPassword(email, password);
       const result = await mutate("signup", {
         role,
         email,
@@ -67,12 +78,15 @@ export default function SignupPage() {
         relation,
       });
       if (!result.ok) {
-        if (result.error === "emailTaken") setErrors({ email: t.auth.errors.emailTaken });
-        else if (result.error === "code") setErrors({ inviteCode: t.auth.errors.code });
+        if (result.error === "emailTaken") {
+          setDetails(false);
+          setErrors({ email: t.auth.errors.emailTaken });
+        } else if (result.error === "code") setErrors({ inviteCode: t.auth.errors.code });
         return;
       }
       router.push(HOME_BY_ROLE[role]);
     } catch {
+      setDetails(false);
       setErrors({ email: t.auth.errors.backend });
     } finally {
       setBusy(false);
@@ -84,13 +98,24 @@ export default function SignupPage() {
       <AuthFrame wide>
         <div className="stack-lg">
           <div className="stack-sm">
-            <h1>{t.auth.signupTitle}</h1>
+            <span className="signup-progress">{t.mobile.signupStep(1)}</span>
+            <h1 ref={stepHeading} tabIndex={-1}>
+              {t.auth.signupTitle}
+            </h1>
             <p className="muted">{t.auth.signupLead}</p>
           </div>
           <h2>{t.auth.chooseRole}</h2>
           <div className="role-cards">
             {ROLES.map((r) => (
-              <button key={r.id} type="button" className="role-card" onClick={() => setRole(r.id)}>
+              <button
+                key={r.id}
+                type="button"
+                className="role-card"
+                onClick={() => {
+                  stepped.current = true;
+                  setRole(r.id);
+                }}
+              >
                 <span className="role-icon" style={{ background: r.bg, color: r.fg }}>
                   <Icon name={r.icon} size={28} />
                 </span>
@@ -122,7 +147,11 @@ export default function SignupPage() {
     <AuthFrame>
       <div className="card stack-lg" style={{ gap: 22 }}>
         <div className="stack-sm">
-          <h1>{t.auth.signupTitle}</h1>
+          <span className="signup-progress">{t.mobile.signupStep(details ? 3 : 2)}</span>
+          <h1 ref={stepHeading} tabIndex={-1}>
+            {details ? t.mobile.signupPreferences : t.auth.signupTitle}
+          </h1>
+          {details ? <p className="muted">{t.mobile.signupPreferencesLead}</p> : null}
           <div className="row-between">
             <span className="row" style={{ gap: 10 }}>
               <span
@@ -141,140 +170,155 @@ export default function SignupPage() {
               </span>
               <strong style={{ color: "var(--navy)" }}>{t.roles[role]}</strong>
             </span>
-            <button type="button" className="link-btn" onClick={() => setRole(null)}>
-              {t.auth.changeRole}
+            <button
+              type="button"
+              className="link-btn"
+              disabled={busy}
+              onClick={() => {
+                setErrors({});
+                if (details) setDetails(false);
+                else setRole(null);
+              }}
+            >
+              {details ? t.common.back : t.auth.changeRole}
             </button>
           </div>
         </div>
 
         <form className="form" onSubmit={submit} noValidate>
-          <div className="fields-2">
-            <div className="field">
-              <label htmlFor="su-first">{t.auth.firstName}</label>
-              <input
-                id="su-first"
-                className="input"
-                autoComplete="given-name"
-                value={firstName}
-                aria-invalid={Boolean(errors.firstName)}
-                aria-describedby={errors.firstName ? "err-firstName" : undefined}
-                onChange={(e) => {
-                  setFirstName(e.target.value);
-                  clear("firstName");
-                }}
-              />
-              {err("firstName")}
-            </div>
-            <div className="field">
-              <label htmlFor="su-last">{t.auth.lastName}</label>
-              <input
-                id="su-last"
-                className="input"
-                autoComplete="family-name"
-                value={lastName}
-                aria-invalid={Boolean(errors.lastName)}
-                aria-describedby={errors.lastName ? "err-lastName" : undefined}
-                onChange={(e) => {
-                  setLastName(e.target.value);
-                  clear("lastName");
-                }}
-              />
-              {err("lastName")}
-            </div>
-          </div>
-          <div className="field">
-            <label htmlFor="su-email">{t.auth.email}</label>
-            <input
-              id="su-email"
-              className="input"
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              value={email}
-              aria-invalid={Boolean(errors.email)}
-              aria-describedby={errors.email ? "err-email" : undefined}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                clear("email");
-              }}
-            />
-            {err("email")}
-          </div>
-          <div className="field">
-            <label htmlFor="su-password">{t.auth.password}</label>
-            <input
-              id="su-password"
-              className="input"
-              type="password"
-              autoComplete="new-password"
-              value={password}
-              aria-invalid={Boolean(errors.password)}
-              aria-describedby="su-password-help"
-              onChange={(e) => {
-                setPassword(e.target.value);
-                clear("password");
-              }}
-            />
-            {errors.password ? err("password") : <small id="su-password-help">{t.auth.passwordHelp}</small>}
-          </div>
-
-          {role !== "family" ? (
+          {!details ? (
             <>
-              <SectorPicker legend={t.auth.sector} value={sector} onChange={setSector} />
-              <InterestPicker legend={t.auth.interests} value={interests} onChange={setInterests} />
-            </>
-          ) : (
-            <div className="card card-soft" style={{ padding: 18 }}>
+              <div className="fields-2">
+                <div className="field">
+                  <label htmlFor="su-first">{t.auth.firstName}</label>
+                  <input
+                    id="su-first"
+                    className="input"
+                    autoComplete="given-name"
+                    value={firstName}
+                    aria-invalid={Boolean(errors.firstName)}
+                    aria-describedby={errors.firstName ? "err-firstName" : undefined}
+                    onChange={(e) => {
+                      setFirstName(e.target.value);
+                      clear("firstName");
+                    }}
+                  />
+                  {err("firstName")}
+                </div>
+                <div className="field">
+                  <label htmlFor="su-last">{t.auth.lastName}</label>
+                  <input
+                    id="su-last"
+                    className="input"
+                    autoComplete="family-name"
+                    value={lastName}
+                    aria-invalid={Boolean(errors.lastName)}
+                    aria-describedby={errors.lastName ? "err-lastName" : undefined}
+                    onChange={(e) => {
+                      setLastName(e.target.value);
+                      clear("lastName");
+                    }}
+                  />
+                  {err("lastName")}
+                </div>
+              </div>
               <div className="field">
-                <label htmlFor="su-code">
-                  {t.auth.inviteCode} <span className="muted small">({t.common.optional})</span>
-                </label>
+                <label htmlFor="su-email">{t.auth.email}</label>
                 <input
-                  id="su-code"
+                  id="su-email"
                   className="input"
-                  placeholder="JOY-0000"
-                  autoCapitalize="characters"
-                  value={inviteCode}
-                  aria-invalid={Boolean(errors.inviteCode)}
-                  aria-describedby="su-code-help"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  value={email}
+                  aria-invalid={Boolean(errors.email)}
+                  aria-describedby={errors.email ? "err-email" : undefined}
                   onChange={(e) => {
-                    setInviteCode(e.target.value);
-                    clear("inviteCode");
+                    setEmail(e.target.value);
+                    clear("email");
                   }}
                 />
-                {errors.inviteCode ? err("inviteCode") : <small id="su-code-help">{t.auth.inviteCodeHelp}</small>}
+                {err("email")}
               </div>
               <div className="field">
-                <label htmlFor="su-relation">{t.auth.relation}</label>
-                <select id="su-relation" className="input" value={relation} onChange={(e) => setRelation(e.target.value as Relation)}>
-                  {RELATION_IDS.map((r) => (
-                    <option key={r} value={r}>
-                      {t.relations[r]}
-                    </option>
-                  ))}
-                </select>
+                <label htmlFor="su-password">{t.auth.password}</label>
+                <input
+                  id="su-password"
+                  className="input"
+                  type="password"
+                  autoComplete="new-password"
+                  value={password}
+                  aria-invalid={Boolean(errors.password)}
+                  aria-describedby="su-password-help"
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    clear("password");
+                  }}
+                />
+                {errors.password ? err("password") : <small id="su-password-help">{t.auth.passwordHelp}</small>}
               </div>
-            </div>
+            </>
+          ) : (
+            <>
+              {role !== "family" ? (
+                <>
+                  <SectorPicker legend={t.auth.sector} value={sector} onChange={setSector} />
+                  <InterestPicker cards legend={t.auth.interests} value={interests} onChange={setInterests} />
+                </>
+              ) : (
+                <div className="card card-soft" style={{ padding: 18 }}>
+                  <div className="field">
+                    <label htmlFor="su-code">
+                      {t.auth.inviteCode} <span className="muted small">({t.common.optional})</span>
+                    </label>
+                    <input
+                      id="su-code"
+                      className="input"
+                      placeholder="JOY-0000"
+                      autoCapitalize="characters"
+                      value={inviteCode}
+                      aria-invalid={Boolean(errors.inviteCode)}
+                      aria-describedby="su-code-help"
+                      onChange={(e) => {
+                        setInviteCode(e.target.value);
+                        clear("inviteCode");
+                      }}
+                    />
+                    {errors.inviteCode ? err("inviteCode") : <small id="su-code-help">{t.auth.inviteCodeHelp}</small>}
+                  </div>
+                  <div className="field">
+                    <label htmlFor="su-relation">{t.auth.relation}</label>
+                    <select id="su-relation" className="input" value={relation} onChange={(e) => setRelation(e.target.value as Relation)}>
+                      {RELATION_IDS.map((r) => (
+                        <option key={r} value={r}>
+                          {t.relations[r]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              <div className="field">
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={consent}
+                    aria-invalid={Boolean(errors.consent)}
+                    onChange={(e) => {
+                      setConsent(e.target.checked);
+                      clear("consent");
+                    }}
+                  />
+                  <span>{t.auth.consent}</span>
+                </label>
+                {err("consent")}
+              </div>
+            </>
           )}
 
-          <div className="field">
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={consent}
-                aria-invalid={Boolean(errors.consent)}
-                onChange={(e) => {
-                  setConsent(e.target.checked);
-                  clear("consent");
-                }}
-              />
-              <span>{t.auth.consent}</span>
-            </label>
-            {err("consent")}
-          </div>
-
           <button className="btn btn-block" type="submit" disabled={busy}>
-            {t.auth.signupSubmit}
+            {details ? t.auth.signupSubmit : t.common.continue}
           </button>
         </form>
         <p className="center">

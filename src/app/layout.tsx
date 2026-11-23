@@ -1,6 +1,7 @@
 import "@fontsource-variable/nunito";
 import "@fontsource/caveat/600.css";
 import "./globals.css";
+import "./mobile.css";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { en } from "@/i18n/en";

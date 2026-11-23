@@ -9,7 +9,7 @@ import { OutingList } from "@/components/OutingList";
 import { Empty } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import { rankActivities } from "@/lib/matching";
-import { pendingOffers, upcomingOutings, userById } from "@/lib/selectors";
+import { isCompanionRequest, pendingOffers, upcomingOutings, userById } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
 import { toLocalIso } from "@/lib/format";
 
@@ -24,7 +24,9 @@ export default function SeniorHome() {
 
   if (!me) return null;
 
-  const next = upcomingOutings(state, me.id).slice(0, 1);
+  const next = upcomingOutings(state, me.id)
+    .filter((item) => !isCompanionRequest(item))
+    .slice(0, 1);
   const suggestions = rankActivities(state, me, undefined, 2);
   const withOffers = state.missions.filter((m) => m.seniorId === me.id && m.status === "open" && pendingOffers(state, m.id).length);
 
@@ -33,13 +35,35 @@ export default function SeniorHome() {
       <header className="senior-home-head">
         <div className="stack-sm">
           <h1>{t.senior.hello(me.firstName)}</h1>
-          <p>{t.senior.homeLead}</p>
+          <p className="desktop-ui">{t.senior.homeLead}</p>
+          <p className="mobile-ui">{t.mobile.today}</p>
         </div>
         <span className="senior-today">
           <Icon name="calendar" size={20} />
           {f.day(today)}
         </span>
       </header>
+
+      <div className="mobile-ui mobile-home-actions">
+        <Link href="/senior/joy" className="mobile-joy-feature">
+          <span className="mobile-action-icon">
+            <Icon name="mic" />
+          </span>
+          <span>
+            <strong>{t.joy.start}</strong>
+            <span>{t.senior.joyDescription}</span>
+          </span>
+          <Icon name="arrowRight" size={22} />
+        </Link>
+        <div className="mobile-shortcuts">
+          <Link href="/senior/activities">
+            <Icon name="calendar" /> <strong>{t.senior.browseActivities}</strong>
+          </Link>
+          <Link href="/senior/outings/new?from=home">
+            <Icon name="users" /> <strong>{t.mobile.companion}</strong>
+          </Link>
+        </div>
+      </div>
 
       {withOffers.map((m) => (
         <Link key={m.id} href={`/senior/outings/${m.id}`} className="notice notice-warn" style={{ textDecoration: "none" }}>
@@ -54,7 +78,7 @@ export default function SeniorHome() {
         </Link>
       ))}
 
-      <div className="senior-home-intro">
+      <div className="senior-home-intro desktop-ui">
         <JoyHero role="senior" featured />
         <Link href="/senior/outings/new?from=home" className="link-btn senior-book-direct">
           <Icon name="heart" size={20} />
@@ -89,7 +113,7 @@ export default function SeniorHome() {
               {t.common.seeAll} <Icon name="chevronRight" size={18} />
             </Link>
           </div>
-          <OutingList items={next} outingBase="/senior/outings" />
+          <OutingList items={next} outingBase="/senior/outings" featured />
         </section>
       ) : null}
 

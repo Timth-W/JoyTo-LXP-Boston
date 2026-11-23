@@ -7,7 +7,7 @@
  */
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/i18n";
 import type { Dict } from "@/i18n/en";
 import { HOME_BY_ROLE } from "@/lib/constants";
@@ -17,6 +17,7 @@ import type { Role } from "@/lib/types";
 import { Icon, type IconName } from "./Icon";
 import { LanguageSwitch } from "./LanguageSwitch";
 import { Logo } from "./Logo";
+import { NotificationInbox } from "./NotificationInbox";
 import { Avatar, Loading } from "./ui";
 
 interface NavItem {
@@ -66,6 +67,9 @@ export function AppShell({ role, children }: { role?: Role; children: ReactNode 
   const router = useRouter();
   const path = usePathname();
   const menuRef = useRef<HTMLDetailsElement>(null);
+  const notificationsRef = useRef<HTMLDivElement>(null);
+  const bellRef = useRef<HTMLButtonElement>(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const previousPath = useRef(path);
   const historyPath = useRef<string | null>(null);
   /** True while signing out, so the guard below does not send the user to the login page. */
@@ -89,6 +93,7 @@ export function AppShell({ role, children }: { role?: Role; children: ReactNode 
 
   useLayoutEffect(() => {
     if (previousPath.current === path) return;
+    setNotificationsOpen(false);
     const fromHistory = historyPath.current === path;
     previousPath.current = path;
     historyPath.current = null;
@@ -117,10 +122,42 @@ export function AppShell({ role, children }: { role?: Role; children: ReactNode 
     };
   }, []);
 
+  useEffect(() => {
+    if (!notificationsOpen) return;
+    const onOutside = (event: Event) => {
+      if (event.target instanceof Node && !notificationsRef.current?.contains(event.target)) setNotificationsOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setNotificationsOpen(false);
+      bellRef.current?.focus();
+    };
+    document.addEventListener("pointerdown", onOutside);
+    document.addEventListener("focusin", onOutside);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onOutside);
+      document.removeEventListener("focusin", onOutside);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [notificationsOpen]);
+
   if (!hydrated || !me || !allowed) return <Loading />;
 
   const items = NAV[me.role];
   const unread = unreadCount(state, me.id);
+
+  function openNotifications() {
+    if (menuRef.current) menuRef.current.open = false;
+    setNotificationsOpen(true);
+    bellRef.current?.focus();
+  }
+
+  function closeNotifications() {
+    setNotificationsOpen(false);
+    bellRef.current?.focus();
+  }
 
   async function signOut(target: string) {
     leaving.current = true;
@@ -133,7 +170,7 @@ export function AppShell({ role, children }: { role?: Role; children: ReactNode 
   }
 
   return (
-    <>
+    <div className="app-frame">
       <a href="#main" className="skip-link">
         {t.common.skip}
       </a>
@@ -143,29 +180,47 @@ export function AppShell({ role, children }: { role?: Role; children: ReactNode 
             <Logo size={38} />
           </Link>
           <nav className="top-nav" aria-label={t.nav.mainNav}>
-            {items
-              .filter((i) => i.href !== "/notifications")
-              .map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={item.label === "joy" ? "nav-joy" : undefined}
-                  aria-current={isActive(path, item) ? "page" : undefined}
-                >
-                  <Icon name={item.icon} size={20} />
-                  {t.nav[item.label]}
-                </Link>
-              ))}
+            {items.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={item.label === "joy" ? "nav-joy" : undefined}
+                aria-current={isActive(path, item) ? "page" : undefined}
+              >
+                <Icon name={item.icon} size={20} />
+                {t.nav[item.label]}
+              </Link>
+            ))}
           </nav>
           <div className="header-actions">
-            <Link
-              href="/notifications"
-              className="icon-btn"
-              aria-label={`${t.nav.notifications}${unread ? ` (${t.notifications.unread(unread)})` : ""}`}
-            >
-              <Icon name="bell" />
-              {unread ? <span className="dot-count">{unread > 9 ? "9+" : unread}</span> : null}
-            </Link>
+            <div className="notification-control" ref={notificationsRef}>
+              <button
+                ref={bellRef}
+                type="button"
+                className="icon-btn"
+                aria-label={`${t.nav.notifications}${unread ? ` (${t.notifications.unread(unread)})` : ""}`}
+                aria-expanded={notificationsOpen}
+                aria-controls={notificationsOpen ? "notification-panel" : undefined}
+                onClick={notificationsOpen ? closeNotifications : openNotifications}
+              >
+                <Icon name="bell" />
+                {unread ? (
+                  <span className="dot-count" aria-hidden="true">
+                    {unread > 9 ? "9+" : unread}
+                  </span>
+                ) : null}
+              </button>
+              {notificationsOpen ? (
+                <NotificationInbox
+                  id="notification-panel"
+                  onClose={closeNotifications}
+                  onNavigate={(href) => {
+                    if (href === path) closeNotifications();
+                    else setNotificationsOpen(false);
+                  }}
+                />
+              ) : null}
+            </div>
             <details className="menu" ref={menuRef}>
               <summary aria-label={t.nav.menu}>
                 <Avatar user={me} size={40} />
@@ -183,9 +238,9 @@ export function AppShell({ role, children }: { role?: Role; children: ReactNode 
                 <Link className="menu-item" href={PROFILE_BY_ROLE[me.role]}>
                   <Icon name="user" /> {t.nav.profile}
                 </Link>
-                <Link className="menu-item" href="/notifications">
+                <button type="button" className="menu-item" onClick={openNotifications}>
                   <Icon name="bell" /> {t.nav.notifications}
-                </Link>
+                </button>
                 <div className="menu-section">
                   <div className="menu-label">{t.nav.language}</div>
                   <LanguageSwitch />
@@ -215,13 +270,13 @@ export function AppShell({ role, children }: { role?: Role; children: ReactNode 
                   <span className="tab-icon">
                     <Icon name={item.icon} size={22} />
                   </span>
-                  {t.nav[item.label]}
+                  <span className="tab-label">{t.nav[item.label]}</span>
                 </Link>
               </li>
             );
           })}
         </ul>
       </nav>
-    </>
+    </div>
   );
 }

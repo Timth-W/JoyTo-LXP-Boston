@@ -11,14 +11,15 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { useI18n } from "@/i18n";
 import type { AssistantRequest, AssistantResponse } from "@/lib/ai/schema";
 import { dayKey } from "@/lib/format";
-import { joinProposal, proposalsFor, type Proposal } from "@/lib/joy/proposals";
+import { joinProposal, joyMoodProposals, proposalsFor, type JoyMood, type Proposal } from "@/lib/joy/proposals";
 import { greeting, keywords, proposalCard, proposalLine } from "@/lib/joy/script";
 import { eligibleActivities, rankActivities } from "@/lib/matching";
 import { attendees, seatsLeft } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
 import type { Category, DayKey, User } from "@/lib/types";
 import { Icon } from "../Icon";
-import { LogoMark } from "../Logo";
+import { JoyCheckIn } from "./JoyCheckIn";
+import { JoyWave } from "./JoyWave";
 import { ProposalSheet, type Confirmation } from "./ProposalSheet";
 import { useJoyVoice, type JoyStatus } from "./useJoyVoice";
 
@@ -43,18 +44,23 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
   const [focusId, setFocusId] = useState<string | null>(null);
   const [sheetId, setSheetId] = useState<string | null>(null);
   const [text, setText] = useState("");
-  const autoStarted = useRef(false);
+  const [showText, setShowText] = useState(false);
+  const [mood, setMood] = useState<JoyMood | null>(null);
+  const textInput = useRef<HTMLInputElement>(null);
+  const checkInStart = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (showText) textInput.current?.focus();
+  }, [showText]);
 
   const proposals: Proposal[] = useMemo(() => {
     const base = proposalsFor(state, viewer, seniorId);
     if (viewer.role !== "senior") return base;
     const eligible = new Set(eligibleActivities(state, viewer).map((a) => a.id));
-    const extras = extraIds
-      .filter((id) => eligible.has(id))
-      .map((id) => joinProposal(state, viewer, id))
-      .filter((p) => !base.some((b) => b.id === p.id));
-    return [...extras, ...base];
-  }, [state, viewer, seniorId, extraIds]);
+    const extras = extraIds.filter((id) => eligible.has(id)).map((id) => joinProposal(state, viewer, id));
+    const checkIn = mood ? joyMoodProposals(state, viewer, mood) : [];
+    return Array.from(new Map([...extras, ...checkIn, ...base].map((proposal) => [proposal.id, proposal])).values());
+  }, [state, viewer, seniorId, extraIds, mood]);
 
   const proposalsRef = useRef(proposals);
   proposalsRef.current = proposals;
@@ -207,16 +213,6 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
     voice.start(context());
   }, [voice, context, proposals]);
 
-  /* "Talk with Joy" buttons elsewhere open this page with ?start=1: Joy starts talking right away. */
-  useEffect(() => {
-    if (autoStarted.current || !voice.ready) return;
-    if (new URLSearchParams(window.location.search).get("start") === "1") {
-      autoStarted.current = true;
-      window.history.replaceState(null, "", window.location.pathname);
-      startVoice();
-    }
-  }, [voice.ready, startVoice]);
-
   function onConfirmed(c: Confirmation) {
     setSheetId(null);
     voice.notify(c.app, c.spoken);
@@ -225,9 +221,18 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     const clean = text.trim();
-    if (!clean) return;
+    if (!clean || voice.status === "connecting" || voice.status === "thinking") return;
     setText("");
     void voice.sendText(clean);
+  }
+
+  function endConversation() {
+    voice.stop();
+    setShowText(false);
+    setText("");
+    window.requestAnimationFrame(() => {
+      if (checkInStart.current?.getClientRects().length) checkInStart.current.focus();
+    });
   }
 
   const statusLabel: Record<JoyStatus, string> = {
@@ -239,6 +244,7 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
     waiting: voice.canListen ? t.joy.ready : t.joy.typePlaceholder,
     error: t.joy.error,
   };
+  const voiceSession = voice.active && !voice.textOnly;
   const sheet = proposals.find((p) => p.id === sheetId) ?? null;
   const hello =
     viewer.role === "senior"
@@ -248,10 +254,24 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
         : t.joy.greeting.family(viewer.firstName, "");
 
   return (
-    <div className="joy-page">
+    <div className="joy-page" data-conversation={voice.active || showText}>
+      <JoyCheckIn
+        mood={mood}
+        ready={voice.ready}
+        startRef={checkInStart}
+        onMood={setMood}
+        onSpeak={startVoice}
+        onWrite={() => setShowText(true)}
+      />
       <header className="joy-page-head">
+        <button type="button" className="icon-btn joy-close mobile-ui" aria-label={t.joy.checkIn.back} onClick={endConversation}>
+          <Icon name="close" />
+        </button>
         <p className="hand">{t.joy.pageEyebrow}</p>
-        <h1>{t.joy.pageTitle}</h1>
+        <h1 className="desktop-ui">{t.joy.pageTitle}</h1>
+        <h1 className="mobile-ui">
+          <Icon name="sparkle" /> {t.joy.name}
+        </h1>
         <p>{t.joy.pageLead}</p>
       </header>
       <section className="joy-stage" aria-label={t.joy.name}>
@@ -259,15 +279,15 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
           <button
             type="button"
             className="joy-orb"
-            data-status={voice.status}
-            onClick={voice.active ? (voice.status === "waiting" && voice.canListen ? voice.listen : undefined) : startVoice}
-            aria-label={voice.active ? statusLabel[voice.status] : t.joy.start}
-            disabled={!voice.ready || (voice.active && !(voice.status === "waiting" && voice.canListen))}
+            data-status={voice.error ? "error" : voice.status}
+            onClick={voiceSession ? (voice.status === "waiting" && voice.canListen ? voice.listen : undefined) : startVoice}
+            aria-label={voiceSession ? statusLabel[voice.status] : t.joy.start}
+            disabled={!voice.ready || (voiceSession && !(voice.status === "waiting" && voice.canListen))}
           >
-            <LogoMark size={76} />
+            <JoyWave />
           </button>
           <p className="joy-status" role="status">
-            {voice.active ? statusLabel[voice.status] : t.joy.idleStatus}
+            {voice.error ? statusLabel.error : voice.active ? statusLabel[voice.status] : t.joy.idleStatus}
           </p>
         </div>
         <div className="joy-conversation">
@@ -286,7 +306,7 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
           ) : null}
           {voice.error ? <p className="notice notice-warn small">{voice.error === "mic" ? t.joy.micDenied : t.joy.error}</p> : null}
 
-          {!voice.active ? (
+          {!voiceSession ? (
             <button type="button" className="btn joy-start" onClick={startVoice} disabled={!voice.ready}>
               <Icon name="mic" /> {t.joy.start}
             </button>
@@ -307,19 +327,24 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
                   <Icon name="mic" size={20} /> {voice.micOn ? t.joy.mute : t.joy.unmute}
                 </button>
               ) : null}
-              <button type="button" className="btn btn-secondary btn-sm" onClick={voice.stop}>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={endConversation}>
                 <Icon name="close" size={20} /> {t.joy.end}
               </button>
             </div>
           )}
 
-          {voice.active ? (
+          <button type="button" className="link-btn joy-write" aria-expanded={showText} onClick={() => setShowText(!showText)}>
+            <Icon name="chat" size={18} /> {t.mobile.typeToJoy}
+          </button>
+          {showText ? (
             <form className="joy-type" onSubmit={onSubmit}>
               <label htmlFor="joy-text" className="sr-only">
                 {t.joy.typePlaceholder}
               </label>
               <input
                 id="joy-text"
+                ref={textInput}
+                disabled={voice.status === "connecting"}
                 className="input"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
@@ -327,7 +352,12 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
                 autoComplete="off"
                 maxLength={300}
               />
-              <button type="submit" className="icon-btn" aria-label={t.joy.send} disabled={!text.trim()}>
+              <button
+                type="submit"
+                className="icon-btn"
+                aria-label={t.joy.send}
+                disabled={!text.trim() || voice.status === "connecting" || voice.status === "thinking"}
+              >
                 <Icon name="send" />
               </button>
             </form>

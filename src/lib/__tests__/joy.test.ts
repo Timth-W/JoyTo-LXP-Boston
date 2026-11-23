@@ -3,7 +3,7 @@ import { makeFormatters } from "@/i18n";
 import { en } from "@/i18n/en";
 import { fr } from "@/i18n/fr";
 import { register } from "../actions";
-import { proposalsFor } from "../joy/proposals";
+import { joyMoodProposals, proposalsFor } from "../joy/proposals";
 import { greeting, when } from "../joy/script";
 import { createSeed } from "../seed";
 import { userById } from "../selectors";
@@ -35,6 +35,18 @@ describe("Joy proposals", () => {
     const marie = userById(s, "u-marie")!;
     register(s, "a1", marie.id, "assistant");
     expect(proposalsFor(s, marie).map((p) => p.id)).not.toContain("join:a1");
+  });
+
+  it("prioritizes a gentler outing after a low check-in while respecting registrations and capacity", () => {
+    const s = seed();
+    const marie = userById(s, "u-marie")!;
+    s.activities = s.activities.filter((activity) => ["a1", "a2"].includes(activity.id));
+    s.registrations = [];
+    expect(joyMoodProposals(s, marie, "low").map((proposal) => proposal.id)).toEqual(["join:a1"]);
+    register(s, "a1", marie.id, "catalogue");
+    expect(joyMoodProposals(s, marie, "low").map((proposal) => proposal.id)).toEqual(["join:a2"]);
+    s.activities.find((activity) => activity.id === "a2")!.capacity = 0;
+    expect(joyMoodProposals(s, marie, "low")).toEqual([]);
   });
 
   it("talks to relatives about their loved one and to companions about missions", () => {

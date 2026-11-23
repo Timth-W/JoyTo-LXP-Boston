@@ -1,16 +1,21 @@
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/i18n";
+import { HOME_BY_ROLE } from "@/lib/constants";
+import { useStore } from "@/lib/store";
 import { Icon } from "./Icon";
 import { LanguageSwitch } from "./LanguageSwitch";
-import { LogoMark, Wordmark } from "./Logo";
+import { Logo, LogoMark, Wordmark } from "./Logo";
 
 const SESSION_KEY = "joyto-welcome-seen";
 
 /** A quiet, once-per-tab welcome. Entering never starts Joy or requests audio. */
 export function WelcomeEntrance({ children }: { children: ReactNode }) {
   const { t } = useI18n();
+  const { me, hydrated } = useStore();
   const [phase, setPhase] = useState<"welcome" | "leaving" | "open">("welcome");
   const entered = useRef(false);
   const content = useRef<HTMLDivElement>(null);
@@ -25,7 +30,9 @@ export function WelcomeEntrance({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (phase !== "leaving") return;
-    const delay = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 450;
+    const reduced =
+      document.documentElement.hasAttribute("data-reduce-motion") || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const delay = reduced ? 0 : 450;
     const timer = window.setTimeout(() => setPhase("open"), delay);
     return () => window.clearTimeout(timer);
   }, [phase]);
@@ -34,24 +41,59 @@ export function WelcomeEntrance({ children }: { children: ReactNode }) {
     if (phase === "open" && entered.current) content.current?.focus({ preventScroll: true });
   }, [phase]);
 
-  function enter() {
-    entered.current = true;
+  function rememberWelcome() {
     try {
       sessionStorage.setItem(SESSION_KEY, "1");
     } catch {
       // Entering does not depend on session storage.
     }
+  }
+
+  function enter() {
+    entered.current = true;
+    rememberWelcome();
     setPhase("leaving");
   }
 
   return (
     <>
       {phase !== "open" ? (
-        <main className={`welcome${phase === "leaving" ? " welcome-leaving" : ""}`} aria-labelledby="welcome-title">
+        <main className={`welcome${phase === "leaving" ? " welcome-leaving" : ""}`} aria-label={t.mobile.welcomeTitle}>
           <div className="welcome-language">
             <LanguageSwitch />
           </div>
-          <div className="welcome-content">
+          <div className="mobile-ui mobile-welcome">
+            <Logo size={50} />
+            <div className="mobile-welcome-art">
+              <Image src="/joyto-welcome.png" alt="" fill unoptimized priority />
+            </div>
+            <div className="mobile-welcome-copy">
+              <h1 id="mobile-welcome-title">{t.mobile.welcomeTitle}</h1>
+              <p>{t.mobile.welcomeLead}</p>
+            </div>
+            <div className="mobile-welcome-actions">
+              <Link
+                href={me ? HOME_BY_ROLE[me.role] : "/signup"}
+                className="btn btn-block"
+                aria-disabled={!hydrated}
+                onNavigate={(event) => {
+                  if (hydrated) rememberWelcome();
+                  else event.preventDefault();
+                }}
+              >
+                {me ? t.landing.continueAs(me.firstName) : t.mobile.start} <Icon name="arrowRight" />
+              </Link>
+              {!me && (
+                <Link href="/login" className="link-btn" onClick={rememberWelcome}>
+                  {t.landing.login}
+                </Link>
+              )}
+              <button type="button" className="link-btn" onClick={enter} disabled={phase === "leaving"}>
+                {t.landing.discover}
+              </button>
+            </div>
+          </div>
+          <div className="welcome-content desktop-ui">
             <div className="welcome-emblem" aria-hidden="true">
               <div className="welcome-orbit" />
               <svg className="welcome-sprig welcome-sprig-left" viewBox="0 0 100 180" fill="none">

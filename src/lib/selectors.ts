@@ -69,7 +69,10 @@ export const attendees = (s: State, activityId: string): User[] =>
 
 /* ---------- Outings ---------- */
 
-export const missionById = (s: State, id: string): Mission | undefined => s.missions.find((m) => m.id === id);
+/** Extra fields computed for the signed-in companion in the API response. */
+export type MissionView = Mission & { seniorLastName?: string; companionPaymentCaptured?: boolean };
+
+export const missionById = (s: State, id: string): MissionView | undefined => s.missions.find((m) => m.id === id);
 export const offersFor = (s: State, missionId: string): Offer[] => s.offers.filter((o) => o.missionId === missionId);
 export const pendingOffers = (s: State, missionId: string) => offersFor(s, missionId).filter((o) => o.status === "pending");
 export const acceptedOffer = (s: State, missionId: string) => s.offers.find((o) => o.missionId === missionId && o.status === "accepted");
@@ -77,6 +80,9 @@ export const companionOf = (s: State, missionId: string): User | undefined => us
 export const paymentFor = (s: State, missionId: string) => s.payments.find((p) => p.missionId === missionId);
 export const giftMinutesLeft = (s: State, seniorId: string) =>
   s.giftCards.filter((g) => g.seniorId === seniorId).reduce((sum, g) => sum + g.minutesLeft, 0);
+
+export const canViewOwnedMission = (s: State, m: Mission, viewerId: string) =>
+  [m.seniorId, m.payerId, m.bookedById].includes(viewerId) || isLinked(s, m.seniorId, viewerId);
 
 export const defaultAutoAcceptVerifiedCompanion = (role: Role | undefined) => role === "family";
 
@@ -88,9 +94,10 @@ export function visitReportFor(s: State, m: Mission, viewer: User | undefined) {
 }
 
 export function companionEarningsMissions(s: State, companionId: string) {
-  return s.missions.filter((m) => {
+  return s.missions.filter((m: MissionView) => {
     if (acceptedOffer(s, m.id)?.companionId !== companionId) return false;
-    return m.status === "confirmed" || m.status === "done" || (m.lateCancel === true && paymentFor(s, m.id)?.status === "captured");
+    const captured = m.companionPaymentCaptured ?? (paymentFor(s, m.id)?.status === "captured");
+    return m.status === "confirmed" || m.status === "done" || (m.lateCancel === true && captured);
   });
 }
 
@@ -132,11 +139,8 @@ export const COMPANION_TONE: Record<CompanionStatus, StatusTone> = {
   taken: "neutral",
 };
 
-/**
- * Progressive privacy: what a companion is allowed to see.
- * In production this filter must be enforced by the backend and the database (row-level security).
- */
-export function missionForCompanion(s: State, m: Mission, companionId: string) {
+/** Progressive privacy used in both the API projection and the companion screen. */
+export function missionForCompanion(s: State, m: MissionView, companionId: string) {
   const senior = userById(s, m.seniorId);
   const st = companionStatus(s, m, companionId);
   const unlocked = st === "confirmed" || st === "done";
@@ -145,13 +149,14 @@ export function missionForCompanion(s: State, m: Mission, companionId: string) {
     visitReport: visitReportFor(s, m, userById(s, companionId)),
     seniorFirstName: senior?.firstName ?? "",
     seniorInterests: senior?.interests ?? [],
-    seniorLastName: unlocked ? (senior?.lastName ?? "") : null,
+    seniorLastName: unlocked ? (m.seniorLastName ?? senior?.lastName ?? "") : null,
     meetingPoint: unlocked ? m.meetingPoint : null,
     unlocked,
   };
 }
 
 export type OutingItem = { kind: "activity"; date: string; activity: Activity } | { kind: "mission"; date: string; mission: Mission };
+export const isCompanionRequest = (item: OutingItem) => item.kind === "mission" && item.mission.status === "open";
 
 export function outingsOf(s: State, seniorId: string): OutingItem[] {
   const items: OutingItem[] = [];
@@ -206,5 +211,10 @@ export function isolationStatus(s: State, seniorId: string) {
   const alert = (daysSince === null || daysSince > NO_OUTING_ALERT_DAYS) && next.length === 0;
   return { last, daysSince, next: next[0] ?? null, alert };
 }
+
+export const notificationsFor = (s: State, userId: string) =>
+  s.notifications
+    .filter((n) => n.userId === userId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id, undefined, { numeric: true }));
 
 export const unreadCount = (s: State, userId: string) => s.notifications.filter((n) => n.userId === userId && !n.read).length;

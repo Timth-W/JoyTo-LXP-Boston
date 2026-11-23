@@ -7,6 +7,7 @@ import { useI18n } from "@/i18n";
 import { useStore } from "@/lib/store";
 import { Icon } from "@/components/Icon";
 import { OutingCelebration } from "@/components/OutingCelebration";
+import { AccessibilityProvider } from "@/components/AccessibilityPreferences";
 
 function BackendRequestNotice() {
   const { requestError, clearRequestError } = useStore();
@@ -27,11 +28,13 @@ function BackendRequestNotice() {
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <I18nProvider>
-      <StoreProvider>
-        <BackendRequestNotice />
-        {children}
-        <OutingCelebration />
-      </StoreProvider>
+      <AccessibilityProvider>
+        <StoreProvider>
+          <BackendRequestNotice />
+          {children}
+          <OutingCelebration />
+        </StoreProvider>
+      </AccessibilityProvider>
     </I18nProvider>
   );
 }

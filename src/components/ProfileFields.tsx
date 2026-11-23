@@ -6,18 +6,33 @@ import { CATEGORY_IDS, SECTOR_IDS, WEEK_ORDER } from "@/lib/constants";
 import type { Category, Moment, SectorId, Slot } from "@/lib/types";
 import { CATEGORY_ICON, Icon } from "./Icon";
 
-export function InterestPicker({ value, onChange, legend }: { value: Category[]; onChange: (v: Category[]) => void; legend: string }) {
+export function InterestPicker({
+  value,
+  onChange,
+  legend,
+  cards = false,
+}: {
+  value: Category[];
+  onChange: (v: Category[]) => void;
+  legend: string;
+  cards?: boolean;
+}) {
   const { t } = useI18n();
   const toggle = (c: Category) => onChange(value.includes(c) ? value.filter((x) => x !== c) : [...value, c]);
   return (
     <fieldset className="field">
-      <legend>{legend}</legend>
-      <div className="toggle-chips">
+      <legend className={cards ? "sr-only" : undefined}>{legend}</legend>
+      <div className={cards ? "interest-cards" : "toggle-chips"}>
         {CATEGORY_IDS.map((c) => (
           <label key={c} className="toggle-chip">
             <input type="checkbox" checked={value.includes(c)} onChange={() => toggle(c)} />
-            <Icon name={CATEGORY_ICON[c]} size={18} />
-            {t.categories[c]}
+            <Icon name={CATEGORY_ICON[c]} size={cards ? 28 : 18} />
+            <span>{t.categories[c]}</span>
+            {cards && value.includes(c) ? (
+              <span className="interest-selected">
+                <Icon name="check" size={15} />
+              </span>
+            ) : null}
           </label>
         ))}
       </div>

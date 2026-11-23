@@ -1,18 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { useI18n } from "@/i18n";
-import { toDate } from "@/lib/format";
-import { attendees, isPast, isRegistered, seatsLeft } from "@/lib/selectors";
+import { attendees, isRegistered, seatsLeft } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
 import type { Activity, User } from "@/lib/types";
 import { CATEGORY_ICON, Icon } from "./Icon";
 import { Avatar } from "./ui";
+import { DateBadge, CategoryLabel } from "./MobileUI";
+import { ActivityRegistration } from "./ActivityRegistration";
 
 /**
  * Activity card, inspired by the moodboard phone card ("I'm in").
- * With a senior viewer, it shows who is going and lets them sign up in one tap.
+ * With a senior viewer, it shows who is going and links to the activity.
  */
 export function ActivityCard({
   activity,
@@ -29,27 +30,13 @@ export function ActivityCard({
   headingLevel?: 2 | 3;
   featured?: boolean;
 }) {
-  const { state, mutate } = useStore();
+  const { state } = useStore();
   const { t, f } = useI18n();
-  const [pending, setPending] = useState(false);
   const going = attendees(state, activity.id);
   const left = seatsLeft(state, activity);
-  const past = isPast(state, activity.start);
   const mine = viewer ? isRegistered(state, activity.id, viewer.id) : false;
   const others = going.filter((u) => u.id !== viewer?.id);
   const Heading = headingLevel === 2 ? "h2" : "h3";
-  async function updateRegistration(action: "register" | "unregister") {
-    if (!viewer || pending) return;
-    setPending(true);
-    try {
-      if (action === "register") await mutate("register", { activityId: activity.id, seniorId: viewer.id, via });
-      else await mutate("unregister", { activityId: activity.id, seniorId: viewer.id });
-    } catch {
-      // The shared backend notice explains failed requests.
-    } finally {
-      setPending(false);
-    }
-  }
   const metadata = (
     <div className="meta">
       <span>
@@ -63,17 +50,9 @@ export function ActivityCard({
 
   return (
     <article className={`card activity-card${featured ? " activity-card-featured" : ""}`}>
-      {featured ? (
-        <div className="activity-category">
-          <Icon name={CATEGORY_ICON[activity.category]} size={18} />
-          {t.categories[activity.category]}
-        </div>
-      ) : null}
+      {featured ? <CategoryLabel category={activity.category} /> : null}
       <div className="activity-top">
-        <div className="date-block" aria-hidden="true">
-          <span className="date-day">{toDate(activity.start).getDate()}</span>
-          <span className="date-month">{f.month(activity.start)}</span>
-        </div>
+        <DateBadge date={activity.start} />
         <div className="min-0 stack-sm" style={{ flex: 1 }}>
           <Heading>
             {viewer?.role === "senior" ? (
@@ -101,38 +80,25 @@ export function ActivityCard({
               <Avatar key={u.id} user={{ ...u, lastName: "" }} size={34} />
             ))}
           </span>
-          <span className="small">{t.activity.with(f.names(others.map((u) => u.firstName)))}</span>
+          <span className="small desktop-ui">{t.activity.with(f.names(others.map((u) => u.firstName)))}</span>
+          <span className="small mobile-ui">{t.activityDetail.participantCount(going.length)}</span>
         </div>
       ) : null}
 
+      {featured ? (
+        <div className="activity-mobile-status">
+          {mine ? (
+            <span className="badge badge-ok">
+              <Icon name="check" size={17} /> {t.activity.registered}
+            </span>
+          ) : (
+            <span className="muted small">{left > 0 ? t.activity.seatsLeft(left) : t.activity.full}</span>
+          )}
+        </div>
+      ) : null}
       {footer}
 
-      <div className="card-actions">
-        {viewer && viewer.role === "senior" ? (
-          past ? (
-            <span className="badge">{t.activity.past}</span>
-          ) : mine ? (
-            <>
-              <span className="badge badge-ok">{t.activity.registered}</span>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                disabled={pending}
-                onClick={() => void updateRegistration("unregister")}
-              >
-                {t.activity.unregister}
-              </button>
-            </>
-          ) : left > 0 ? (
-            <button type="button" className="btn btn-sm" disabled={pending} onClick={() => void updateRegistration("register")}>
-              <Icon name="check" size={18} /> {t.activity.imIn}
-            </button>
-          ) : (
-            <span className="badge badge-danger">{t.activity.full}</span>
-          )
-        ) : null}
-        {!past && !mine ? <span className="muted small">{t.activity.seatsLeft(left)}</span> : null}
-      </div>
+      <ActivityRegistration activity={activity} viewer={viewer} via={via} />
     </article>
   );
 }

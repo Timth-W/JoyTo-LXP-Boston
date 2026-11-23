@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ConnectForm } from "@/components/FamilyLinks";
+import { ConnectForm, FamilyIllustration } from "@/components/FamilyLinks";
 import { Icon } from "@/components/Icon";
 import { OutingList } from "@/components/OutingList";
 import { SeniorSwitcher } from "@/components/SeniorSwitcher";
@@ -22,9 +22,10 @@ export default function FamilyHome() {
 
   if (!senior) {
     return (
-      <div className="stack-lg">
+      <div className="stack-lg mobile-role-home">
         <PageHead title={t.family.hello(family.firstName)} lead={t.family.lead} />
         <section className="card" style={{ maxWidth: 760 }}>
+          <FamilyIllustration />
           <h2 className="row" style={{ gap: 10 }}>
             <Icon name="link" /> {t.family.connectTitle}
           </h2>
@@ -43,7 +44,7 @@ export default function FamilyHome() {
   const nextDate = iso.next?.date ?? null;
 
   return (
-    <div className="stack-lg">
+    <div className="stack-lg mobile-role-home">
       <PageHead
         title={t.family.hello(family.firstName)}
         action={

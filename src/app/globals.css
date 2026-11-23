@@ -41,6 +41,8 @@
   --tap: 48px;
   --header-h: 68px;
   --tabbar-h: 68px;
+  --tabbar-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  --tabbar-offset: calc(var(--tabbar-h) + var(--tabbar-bottom) + 1px);
   --max: 1100px;
   --font: "Nunito Variable", "Nunito", ui-rounded, "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-hand: "Caveat", "Segoe Print", "Bradley Hand", cursive;
@@ -259,6 +261,7 @@ body::before {
   background: var(--bg);
 }
 .app-header-inner {
+  position: relative;
   height: var(--header-h);
   display: flex;
   align-items: center;
@@ -342,7 +345,7 @@ body::before {
 
 .app-main {
   padding-top: 24px;
-  padding-bottom: calc(var(--tabbar-h) + 40px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: 24px;
 }
 @media (min-width: 960px) {
   .app-main {
@@ -352,15 +355,14 @@ body::before {
 }
 
 .tabbar {
-  position: fixed;
-  left: 0;
-  right: 0;
+  position: sticky;
   bottom: 0;
+  flex: none;
   z-index: 40;
   background: var(--surface);
   border-top: 1px solid var(--border);
   box-shadow: 0 -6px 24px rgba(32, 59, 82, 0.08);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: var(--tabbar-bottom);
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
 }
@@ -371,29 +373,35 @@ body::before {
   max-width: 560px;
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+  grid-auto-columns: minmax(0, 1fr);
 }
 .tabbar a {
-  height: var(--tabbar-h);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
+  min-height: var(--tabbar-h);
+  display: grid;
+  grid-template-rows: 34px auto;
+  justify-items: center;
+  align-content: start;
+  gap: 4px;
   text-decoration: none;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.83rem;
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 1.2;
   text-align: center;
-  padding: 0 2px;
+  padding: 6px 2px;
 }
 .tabbar a .tab-icon {
   display: grid;
   place-items: center;
   width: 52px;
+  max-width: 100%;
   height: 30px;
+  align-self: center;
   border-radius: 999px;
+}
+.tab-label {
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 .tabbar a[aria-current="page"] {
   color: var(--forest);
@@ -409,9 +417,14 @@ body::before {
 @media (max-width: 959px) {
   :root:has(.tabbar) {
     --header-h: 60px;
-    --tabbar-h: 62px;
+    --tabbar-h: 72px;
     scroll-padding-top: calc(env(safe-area-inset-top, 0px) + 12px);
-    scroll-padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 12px);
+    scroll-padding-bottom: calc(var(--tabbar-offset) + 12px);
+  }
+  .app-frame {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
   }
   .app-header {
     position: relative;
@@ -420,7 +433,7 @@ body::before {
     padding-top: env(safe-area-inset-top, 0px);
   }
   .app-header .menu-panel {
-    max-height: calc(100dvh - var(--header-h) - var(--tabbar-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px);
+    max-height: calc(100dvh - var(--header-h) - var(--tabbar-offset) - env(safe-area-inset-top, 0px) - 16px);
     overflow-y: auto;
   }
   .app-header .lang-switch button,
@@ -433,14 +446,8 @@ body::before {
     height: 32px;
   }
   .app-main {
+    flex: 1 0 auto;
     padding-top: 18px;
-    padding-bottom: calc(var(--tabbar-h) + 24px + env(safe-area-inset-bottom, 0px));
-  }
-  .tabbar a {
-    height: auto;
-    min-height: var(--tabbar-h);
-    padding: 6px 2px;
-    font-size: 0.83rem;
   }
   .tabbar a[aria-current="page"] {
     font-weight: 850;
@@ -2577,7 +2584,7 @@ select.input {
 }
 .composer {
   position: sticky;
-  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 12px);
+  bottom: calc(var(--tabbar-offset) + 12px);
   z-index: 5;
   display: flex;
   gap: 8px;
@@ -3423,14 +3430,6 @@ select.input {
 .welcome-content-pending {
   display: none;
 }
-@media (max-width: 699px), (max-height: 520px) and (pointer: coarse) {
-  .welcome {
-    display: none;
-  }
-  .welcome-content-pending {
-    display: block;
-  }
-}
 .welcome-language {
   position: absolute;
   top: max(20px, env(safe-area-inset-top));
@@ -3680,11 +3679,110 @@ select.input {
   color: #fff;
 }
 
+.notification-inbox {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 820px;
+}
+.notification-panel {
+  position: absolute;
+  inset-block-start: calc(100% + 8px);
+  inset-inline-end: max(28px, env(safe-area-inset-right, 0px));
+  z-index: 60;
+  width: 410px;
+  max-height: min(32rem, calc(100dvh - var(--header-h) - env(safe-area-inset-top, 0px) - 24px));
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+.notification-control > .icon-btn {
+  font: inherit;
+}
+.notification-control > .icon-btn[aria-expanded="true"] {
+  background: var(--surface);
+}
+.notification-head {
+  display: grid;
+  gap: 6px;
+}
+.notification-panel .notification-head {
+  flex: none;
+  padding: 4px 12px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.notification-title,
+.notification-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+.notification-tools {
+  flex-wrap: wrap;
+}
+.notification-panel .notification-title h2 {
+  font-size: 1.25rem;
+}
+.notification-panel .notification-tools .btn {
+  padding-inline: 12px;
+  font-size: 0.88rem;
+}
+.notification-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.notification-panel .notification-list {
+  min-block-size: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding: 10px 12px 12px;
+}
+.notification-empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.notification-panel .notification-empty {
+  padding: 16px 12px;
+}
+.notification-panel .notification-title .icon-btn:hover {
+  background: var(--surface-2);
+}
+.notification-message {
+  display: block;
+  color: var(--navy);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.notif-item.unread .notification-message {
+  font-weight: 800;
+}
+@media (max-width: 959px) {
+  .notification-panel {
+    inset-inline: max(12px, env(safe-area-inset-left, 0px)) max(12px, env(safe-area-inset-right, 0px));
+    width: auto;
+    max-width: 410px;
+    margin-inline-start: auto;
+    max-height: min(
+      28rem,
+      calc(100dvh - var(--header-h) - var(--tabbar-offset) - env(safe-area-inset-top, 0px) - 24px)
+    );
+  }
+}
+
 .notif-item {
   display: flex;
   gap: 12px;
   align-items: flex-start;
   padding: 14px 16px;
+  min-height: var(--tap);
   border-radius: var(--radius-sm);
   text-decoration: none;
   color: inherit;
@@ -3697,8 +3795,8 @@ select.input {
   border-color: var(--forest);
 }
 .notif-item.unread {
-  background: #fffaf2;
-  border-color: #f0d7a8;
+  background: var(--surface-2);
+  border-color: var(--border-strong);
 }
 .notif-dot {
   width: 10px;
@@ -3739,7 +3837,7 @@ select.input {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(var(--tabbar-h) + 20px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--tabbar-offset) + 20px);
   z-index: 70;
   background: var(--navy);
   color: #fff;

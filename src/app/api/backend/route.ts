@@ -3,6 +3,7 @@ import { appStateStore, stateSummary } from "../../../lib/backend";
 import { applyBackendAction, isBackendMutationAction } from "../../../lib/backend-actions";
 import { backendView, createSession, removeSession, SESSION_COOKIE, SESSION_SECONDS, sessionActor } from "../../../lib/backend-session";
 import { toLocalIso } from "../../../lib/format";
+import { currentUser } from "../../../lib/selectors";
 import type { State } from "../../../lib/types";
 
 function record(value: unknown): Record<string, unknown> {
@@ -41,11 +42,12 @@ export async function POST(request: NextRequest) {
       const loggedIn = (action === "login" || action === "signup") && record(result).ok === true;
       const loggedInAsDemo = action === "login-as-demo" && state.users.some((user) => user.id === input.userId && user.demo);
       const nextToken = (loggedIn || loggedInAsDemo) && state.currentUserId ? createSession(state, state.currentUserId, token) : undefined;
-      const safeResult = action === "login" && loggedIn ? { ok: true, user: { ...record(record(result).user), passwordHash: "" } } : result;
-      return { result: safeResult, nextToken };
+      return { result, nextToken };
     });
     const { result, nextToken } = transaction.result;
-    const response = respond(backendView(transaction.state, action === "logout" ? undefined : (nextToken ?? token)), result);
+    const view = backendView(transaction.state, action === "logout" ? undefined : (nextToken ?? token));
+    const safeResult = action === "login" && record(result).ok === true ? { ok: true, user: currentUser(view) } : result;
+    const response = respond(view, safeResult);
     if (nextToken || action === "logout") {
       response.cookies.set(SESSION_COOKIE, nextToken ?? "", {
         httpOnly: true,

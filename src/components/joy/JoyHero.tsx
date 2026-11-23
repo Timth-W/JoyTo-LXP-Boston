@@ -6,7 +6,7 @@ import type { Role } from "@/lib/types";
 import { Icon } from "../Icon";
 import { LogoMark } from "../Logo";
 
-/** Entry point to Joy on each home screen. Opening the page with ?start=1 makes Joy speak at once. */
+/** Entry point to Joy on each home screen. Audio starts from Joy's microphone control. */
 export function JoyHero({ role, featured = false }: { role: Role; featured?: boolean }) {
   const { t } = useI18n();
   return (
@@ -24,7 +24,7 @@ export function JoyHero({ role, featured = false }: { role: Role; featured?: boo
         <h2>{featured ? t.senior.joyPrompt : t.joy.name}</h2>
         <p className="muted">{featured ? t.senior.joyDescription : t.joy.lead}</p>
       </div>
-      <Link href={`/${role}/joy?start=1`} className="btn btn-block-mobile">
+      <Link href={`/${role}/joy`} className="btn btn-block-mobile">
         <Icon name="mic" /> {t.joy.start}
       </Link>
       {featured ? (

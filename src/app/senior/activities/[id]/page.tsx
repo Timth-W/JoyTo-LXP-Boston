@@ -2,18 +2,18 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { ActivityRegistration } from "@/components/ActivityRegistration";
+import { CategoryLabel } from "@/components/MobileUI";
 import { CATEGORY_ICON, Icon } from "@/components/Icon";
 import { BackLink, Empty, Person } from "@/components/ui";
 import { useI18n } from "@/i18n";
-import { activityById, attendees, isPast, isRegistered, seatsLeft } from "@/lib/selectors";
+import { activityById, attendees, isPast, isRegistered } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
 
 export default function ActivityDetail() {
   const { id } = useParams<{ id: string }>();
-  const { state, me, mutate } = useStore();
+  const { state, me } = useStore();
   const { t, f } = useI18n();
-  const [pending, setPending] = useState(false);
   if (!me) return null;
   const senior = me;
   const a = activityById(state, id);
@@ -24,33 +24,19 @@ export default function ActivityDetail() {
       </Empty>
     );
   }
-  const activity = a;
   const going = attendees(state, a.id);
   const others = going.filter((u) => u.id !== senior.id);
   const mine = isRegistered(state, a.id, senior.id);
-  const left = seatsLeft(state, a);
   const past = isPast(state, a.start);
-
-  async function updateRegistration(action: "register" | "unregister") {
-    if (pending) return;
-    setPending(true);
-    try {
-      if (action === "register") await mutate("register", { activityId: activity.id, seniorId: senior.id, via: "catalogue" });
-      else await mutate("unregister", { activityId: activity.id, seniorId: senior.id });
-    } catch {
-      // The shared backend notice explains failed requests.
-    } finally {
-      setPending(false);
-    }
-  }
 
   return (
     <div className="activity-detail-page">
       <BackLink href="/senior/activities" />
       <header className="activity-detail-head">
-        <span className="chip" style={{ alignSelf: "flex-start" }}>
-          <Icon name={CATEGORY_ICON[a.category]} size={16} /> {t.categories[a.category]}
-        </span>
+        <div className="activity-illustration mobile-ui" data-category={a.category} aria-hidden="true">
+          <Icon name={CATEGORY_ICON[a.category]} size={76} />
+        </div>
+        <CategoryLabel category={a.category} />
         <h1>{f.text(a.title)}</h1>
         <p>{f.text(a.description)}</p>
       </header>
@@ -90,33 +76,7 @@ export default function ActivityDetail() {
               <dd>{f.text(a.organizer)}</dd>
             </div>
           </dl>
-          <div className="activity-registration" aria-busy={pending}>
-            {past ? (
-              <span className="badge">{t.activity.past}</span>
-            ) : mine ? (
-              <>
-                <span className="badge badge-ok">
-                  <Icon name="check" size={17} />
-                  {t.activity.registered}
-                </span>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  disabled={pending}
-                  onClick={() => void updateRegistration("unregister")}
-                >
-                  {t.activity.unregister}
-                </button>
-              </>
-            ) : left > 0 ? (
-              <button type="button" className="btn btn-block-mobile" disabled={pending} onClick={() => void updateRegistration("register")}>
-                <Icon name="check" /> {t.activity.imIn}
-              </button>
-            ) : (
-              <span className="badge badge-danger">{t.activity.full}</span>
-            )}
-            {!past ? <span className="muted">{t.activity.seatsLeft(left)}</span> : null}
-          </div>
+          <ActivityRegistration activity={a} viewer={senior} detail />
         </section>
 
         {!past ? (

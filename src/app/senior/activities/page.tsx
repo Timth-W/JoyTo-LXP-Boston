@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ActivityCard } from "@/components/ActivityCard";
 import { ActivityMap } from "@/components/ActivityMap";
 import { CATEGORY_ICON, Icon } from "@/components/Icon";
+import { SegmentedControl } from "@/components/MobileUI";
 import { Empty, PageHead } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import { CATEGORY_IDS } from "@/lib/constants";
@@ -33,14 +34,15 @@ export default function ActivitiesPage() {
         eyebrow={t.catalogue.eyebrow}
         lead={t.catalogue.lead}
         action={
-          <div className="segmented" role="group" aria-label={`${t.senior.list} / ${t.senior.map}`}>
-            <button type="button" aria-pressed={view === "list"} onClick={() => setView("list")}>
-              <Icon name="list" size={18} /> {t.senior.list}
-            </button>
-            <button type="button" aria-pressed={view === "map"} onClick={() => setView("map")}>
-              <Icon name="map" size={18} /> {t.senior.map}
-            </button>
-          </div>
+          <SegmentedControl
+            label={t.senior.activitiesTitle}
+            value={view}
+            onChange={setView}
+            options={[
+              { value: "list", label: t.senior.list, icon: "list" },
+              { value: "map", label: t.senior.map, icon: "map" },
+            ]}
+          />
         }
       />
 
@@ -66,27 +68,6 @@ export default function ActivitiesPage() {
               </button>
             ) : null}
           </div>
-        </div>
-        <div className="catalogue-category-select">
-          <label className="sr-only" htmlFor="activity-category">
-            {t.catalogue.categoryLabel}
-          </label>
-          <select
-            id="activity-category"
-            value={category}
-            onChange={(event) => {
-              const value = event.currentTarget.value;
-              setCategory(CATEGORY_IDS.find((id) => id === value) ?? "all");
-            }}
-          >
-            <option value="all">{t.catalogue.allCategories}</option>
-            {CATEGORY_IDS.map((c) => (
-              <option key={c} value={c}>
-                {t.categories[c]}
-              </option>
-            ))}
-          </select>
-          <Icon name="chevronDown" size={18} />
         </div>
         <div className="toggle-chips catalogue-categories" role="group" aria-labelledby="catalogue-filter-title">
           <label className="toggle-chip">

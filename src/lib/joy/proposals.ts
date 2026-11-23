@@ -6,7 +6,7 @@
 import { daysBetween } from "../format";
 import { rankActivities, rankMissions } from "../matching";
 import { attendees, giftMinutesLeft, isPast, pendingOffers, seniorsOf, upcomingOutings, userById } from "../selectors";
-import type { State, User } from "../types";
+import type { Intent, State, User } from "../types";
 
 export type Proposal =
   /** Sign up to a free activity. */
@@ -23,6 +23,21 @@ export type Proposal =
   | { id: string; kind: "gift"; seniorId: string };
 
 export type ProposalKind = Proposal["kind"];
+export type JoyMood = "good" | "okay" | "low";
+
+const EASY_OUTING_INTENT: Intent = {
+  categories: ["coffee", "walk", "gardening"],
+  days: [],
+  moment: null,
+  wantsCompanion: false,
+  wantsGroup: false,
+};
+
+export function joyMoodProposals(s: State, senior: User, mood: JoyMood): Proposal[] {
+  return rankActivities(s, senior, mood === "low" ? EASY_OUTING_INTENT : undefined, mood === "good" ? 3 : 2).map(({ item }) =>
+    joinProposal(s, senior, item.id),
+  );
+}
 
 /** Reminders only for what happens within the next two days. */
 const SOON_DAYS = 2;

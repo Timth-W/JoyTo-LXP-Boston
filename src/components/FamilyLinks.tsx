@@ -4,15 +4,25 @@
  * Links between a senior and their relatives (son, daughter, grandchild…).
  * The senior shares an invite code; the relative enters it. Either side can remove the link.
  */
+import Image from "next/image";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { useI18n } from "@/i18n";
 import { RELATION_IDS } from "@/lib/constants";
-import { findSeniorByCode, linksOfFamily, linksOfSenior, userById } from "@/lib/selectors";
+import { linksOfFamily, linksOfSenior, userById } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
 import type { FamilyLink, Relation, User } from "@/lib/types";
 import { Icon } from "./Icon";
-import { CopyButton, Person } from "./ui";
+import { ConfirmAction } from "./MobileUI";
+import { CopyButton, Person, useToast } from "./ui";
+
+export function FamilyIllustration() {
+  return (
+    <div className="mobile-ui family-illustration">
+      <Image src="/joyto-family.png" alt="" fill unoptimized />
+    </div>
+  );
+}
 
 function LinkRow({ link, other, viewer }: { link: FamilyLink; other: User; viewer: User }) {
   const { mutate } = useStore();
@@ -53,8 +63,26 @@ export function SeniorFamilyPanel({ senior }: { senior: User }) {
   const { t } = useI18n();
   const links = linksOfSenior(state, senior.id);
   const [regenerating, setRegenerating] = useState(false);
+  const [confirmCode, setConfirmCode] = useState(false);
+  const [shareError, setShareError] = useState(false);
+  const [toast, showToast] = useToast();
+  async function shareCode() {
+    if (!senior.inviteCode) return;
+    setShareError(false);
+    const text = t.mobile.inviteMessage(senior.inviteCode);
+    try {
+      if (navigator.share) await navigator.share({ text });
+      else {
+        await navigator.clipboard.writeText(text);
+        showToast(t.mobile.copiedInvite);
+      }
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError")) setShareError(true);
+    }
+  }
   async function regenerateCode() {
     if (regenerating) return;
+    setConfirmCode(false);
     setRegenerating(true);
     try {
       await mutate("regenerate-invite-code", { seniorId: senior.id });
@@ -66,10 +94,11 @@ export function SeniorFamilyPanel({ senior }: { senior: User }) {
   }
   return (
     <section className="card profile-family-panel" aria-labelledby="family-title">
+      <FamilyIllustration />
       <h2 id="family-title" className="row" style={{ fontSize: "1.25rem", gap: 10 }}>
-        <Icon name="users" /> {t.profile.familyTitle}
+        <Icon name="users" /> {t.mobile.familyHeading}
       </h2>
-      <p className="muted">{t.profile.familyLead}</p>
+      <p className="muted">{t.mobile.familyPermissions}</p>
       <div className="profile-invitation">
         <span className="label">{t.profile.inviteCode}</span>
         <div className="code-box">
@@ -78,11 +107,19 @@ export function SeniorFamilyPanel({ senior }: { senior: User }) {
           </span>
           <div className="row">
             <CopyButton value={senior.inviteCode ?? ""} />
-            <button type="button" className="btn btn-ghost btn-sm" disabled={regenerating} onClick={() => void regenerateCode()}>
-              <Icon name="refresh" size={18} /> {t.profile.regenerate}
-            </button>
           </div>
         </div>
+        <button type="button" className="btn btn-block" disabled={!senior.inviteCode} onClick={() => void shareCode()}>
+          <Icon name="link" /> {t.mobile.shareInvite}
+        </button>
+        {shareError ? (
+          <p className="error" role="alert">
+            {t.mobile.inviteError}
+          </p>
+        ) : null}
+        <button type="button" className="btn btn-ghost btn-sm" disabled={regenerating} onClick={() => setConfirmCode(true)}>
+          <Icon name="refresh" size={18} /> {t.profile.regenerate}
+        </button>
         <small className="help">{t.profileEditor.codeHelp}</small>
         <ol className="profile-invite-steps">
           {t.profileEditor.inviteSteps.map((step) => (
@@ -104,13 +141,19 @@ export function SeniorFamilyPanel({ senior }: { senior: User }) {
           <p>{t.profile.noFamily}</p>
         </div>
       )}
+      {confirmCode ? (
+        <ConfirmAction title={t.mobile.renewInvite} onCancel={() => setConfirmCode(false)} onConfirm={() => void regenerateCode()}>
+          <p>{t.mobile.renewInviteHelp}</p>
+        </ConfirmAction>
+      ) : null}
+      {toast}
     </section>
   );
 }
 
 /** Relative side: form to enter a code. */
 export function ConnectForm({ family, onLinked }: { family: User; onLinked?: (seniorId: string) => void }) {
-  const { state, mutate } = useStore();
+  const { mutate } = useStore();
   const { t } = useI18n();
   const [code, setCode] = useState("");
   const [relation, setRelation] = useState<Relation>("daughter");
@@ -119,13 +162,12 @@ export function ConnectForm({ family, onLinked }: { family: User; onLinked?: (se
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!code.trim()) return setError(t.auth.errors.code);
-    const senior = findSeniorByCode(state, code);
     try {
-      const err = await mutate("link-by-code", { familyId: family.id, code, relation });
-      if (err) return setError(err === "alreadyLinked" ? t.auth.errors.alreadyLinked : t.auth.errors.code);
+      const result = await mutate("link-by-code", { familyId: family.id, code, relation });
+      if (typeof result === "string") return setError(result === "alreadyLinked" ? t.auth.errors.alreadyLinked : t.auth.errors.code);
       setError(null);
       setCode("");
-      if (senior && onLinked) onLinked(senior.id);
+      onLinked?.(result.seniorId);
     } catch {
       // The shared backend notice explains the failed request.
     }
@@ -185,6 +227,7 @@ export function FamilySeniorsPanel({ family }: { family: User }) {
   return (
     <>
       <section className="card" aria-labelledby="linked-title">
+        <FamilyIllustration />
         <h2 id="linked-title" className="row" style={{ fontSize: "1.25rem", gap: 10 }}>
           <Icon name="users" /> {t.family.linkedSeniors}
         </h2>
@@ -203,6 +246,7 @@ export function FamilySeniorsPanel({ family }: { family: User }) {
         <h2 id="connect-title" style={{ fontSize: "1.25rem" }}>
           {t.family.connectTitle}
         </h2>
+        <p className="muted">{t.family.connectLead}</p>
         <ConnectForm family={family} />
         <Link href="/family" className="link-btn">
           {t.nav.home} <Icon name="chevronRight" size={18} />

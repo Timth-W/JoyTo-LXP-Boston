@@ -1,5 +1,6 @@
 "use client";
 
+import { ProfileDashboard } from "@/components/ProfileSections";
 import { ProfileForm } from "@/components/ProfileForm";
 import { PageHead } from "@/components/ui";
 import { useI18n } from "@/i18n";
@@ -10,11 +11,14 @@ export default function CompanionProfilePage() {
   const { t } = useI18n();
   if (!me) return null;
   return (
-    <div className="stack-lg">
-      <PageHead title={t.profile.title} />
-      <div style={{ maxWidth: 820 }}>
-        <ProfileForm user={me} />
+    <>
+      <ProfileDashboard user={me} />
+      <div className="desktop-ui stack-lg">
+        <PageHead title={t.profile.title} />
+        <div style={{ maxWidth: 820 }}>
+          <ProfileForm user={me} />
+        </div>
       </div>
-    </div>
+    </>
   );
 }

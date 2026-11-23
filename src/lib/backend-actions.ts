@@ -1,3 +1,4 @@
+import { z } from "zod";
 import {
   acceptOffer,
   buyGiftCard,
@@ -6,7 +7,7 @@ import {
   companionCancel,
   createMission,
   declineOffer,
-  linkByCode,
+  linkFamily,
   login,
   loginAsDemo,
   logout,
@@ -23,10 +24,24 @@ import {
   updateProfile,
   withdrawOffer,
 } from "./actions";
+import { CATEGORY_IDS, DAY_KEYS, SECTOR_IDS } from "./constants";
 import { createSeed } from "./seed";
 import type { BackendMutationAction, BackendMutationPayloads } from "./backend-contract";
-import type { State } from "./types";
-import { acceptedOffer, isLinked, missionById, payersFor, userById } from "./selectors";
+import type { Category, SectorId, Slot, State } from "./types";
+import { acceptedOffer, findSeniorByCode, isLinked, missionById, payersFor, userById } from "./selectors";
+
+const sector = z.custom<SectorId>((value) => SECTOR_IDS.some((id) => id === value));
+const profilePatch = z
+  .object({
+    firstName: z.string().trim().min(1).optional(),
+    lastName: z.string().trim().min(1).optional(),
+    bio: z.union([z.string(), z.object({ en: z.string(), fr: z.string() })]).optional(),
+    sector: sector.optional(),
+    interests: z.array(z.custom<Category>((value) => CATEGORY_IDS.some((id) => id === value))).optional(),
+    availability: z.array(z.custom<Slot>((value) => DAY_KEYS.some((day) => value === `${day}-am` || value === `${day}-pm`))).optional(),
+    companionSectors: z.array(sector).optional(),
+  })
+  .strict();
 
 const ACTIONS: Record<BackendMutationAction, true> = {
   login: true,
@@ -71,6 +86,7 @@ export function applyBackendAction(
   now = state.now,
 ): unknown {
   const missionId = text(input.missionId);
+  const actor = userById(state, actorId);
   switch (action) {
     case "login":
       return login(state, text(input.email), text(input.passwordHash));
@@ -81,19 +97,19 @@ export function applyBackendAction(
     case "logout":
       return logout(state);
     case "reset-demo": {
+      if (!actor?.demo) throw new Error("You cannot reset the demo.");
       const currentUserId = state.currentUserId;
       const now = state.now;
       Object.assign(state, createSeed(), { currentUserId, now });
       return;
     }
-    case "link-by-code":
-      if (!actorId || actorId !== input.familyId) throw new Error("You cannot link this account.");
-      return linkByCode(
-        state,
-        text(input.familyId),
-        text(input.code),
-        text(input.relation) as BackendMutationPayloads["link-by-code"]["relation"],
-      );
+    case "link-by-code": {
+      if (actor?.role !== "family" || actor.id !== input.familyId) throw new Error("You cannot link this account.");
+      const senior = findSeniorByCode(state, text(input.code));
+      if (!senior) return "code";
+      const error = linkFamily(state, senior.id, actor.id, text(input.relation) as BackendMutationPayloads["link-by-code"]["relation"]);
+      return error ?? { seniorId: senior.id };
+    }
     case "unlink-family":
       if (!actorId || actorId !== input.byUserId) throw new Error("You cannot unlink this account.");
       return unlinkFamily(state, text(input.linkId), text(input.byUserId));
@@ -101,9 +117,16 @@ export function applyBackendAction(
       if (!actorId || actorId !== input.seniorId) throw new Error("You cannot change this invitation code.");
       return regenerateInviteCode(state, text(input.seniorId));
     case "register":
-      return register(state, text(input.activityId), text(input.seniorId), text(input.via) === "assistant" ? "assistant" : "catalogue");
-    case "unregister":
-      return unregister(state, text(input.activityId), text(input.seniorId));
+    case "unregister": {
+      const seniorId = text(input.seniorId);
+      if (!actor || (actor.role === "senior" ? actor.id !== seniorId : actor.role !== "family" || !isLinked(state, seniorId, actor.id))) {
+        throw new Error("You cannot change this registration.");
+      }
+      const activityId = text(input.activityId);
+      return action === "register"
+        ? register(state, activityId, seniorId, text(input.via) === "assistant" ? "assistant" : "catalogue")
+        : unregister(state, activityId, seniorId);
+    }
     case "create-mission": {
       const request = input as unknown as BackendMutationPayloads["create-mission"];
       if (!actorId || actorId !== request.bookedById || (actorId !== request.seniorId && !isLinked(state, request.seniorId, actorId))) {
@@ -128,7 +151,7 @@ export function applyBackendAction(
       });
     }
     case "offer-help":
-      if (userById(state, actorId)?.role !== "companion" || actorId !== input.companionId) throw new Error("You cannot make this offer.");
+      if (actor?.role !== "companion" || actor.id !== input.companionId) throw new Error("You cannot make this offer.");
       return offerHelp(state, missionId, text(input.companionId));
     case "withdraw-offer":
       if (!actorId || actorId !== input.companionId) throw new Error("You cannot withdraw this offer.");
@@ -159,17 +182,30 @@ export function applyBackendAction(
       return completeMission(state, missionId);
     }
     case "send-visit-report":
-      if (userById(state, actorId)?.role !== "companion" || !actorId) throw new Error("You cannot send this report.");
-      return sendVisitReport(state, missionId, actorId, text(input.summary), input.shareReportWithSenior === true);
-    case "rate-mission":
-      return rateMission(state, text(input.missionId), Number(input.rating), text(input.review));
-    case "buy-gift-card":
-      return buyGiftCard(state, text(input.buyerId), text(input.seniorId));
+      if (actor?.role !== "companion") throw new Error("You cannot send this report.");
+      return sendVisitReport(state, missionId, actor.id, text(input.summary), input.shareReportWithSenior === true);
+    case "rate-mission": {
+      const mission = missionById(state, missionId);
+      if (!mission || actor?.id !== mission.seniorId) throw new Error("You cannot review this outing.");
+      return rateMission(state, missionId, Number(input.rating), text(input.review));
+    }
+    case "buy-gift-card": {
+      const seniorId = text(input.seniorId);
+      if (actor?.role !== "family" || actor.id !== input.buyerId || !isLinked(state, seniorId, actor.id)) {
+        throw new Error("You cannot buy this gift card.");
+      }
+      return buyGiftCard(state, actor.id, seniorId);
+    }
     case "update-profile":
-      return updateProfile(state, text(input.userId), (input.patch ?? {}) as BackendMutationPayloads["update-profile"]["patch"]);
+      if (!actor || actor.id !== input.userId) throw new Error("You cannot change this profile.");
+      return updateProfile(state, actor.id, profilePatch.parse(input.patch));
     case "mark-all-read":
-      return markAllRead(state, text(input.userId));
-    case "mark-read":
-      return markRead(state, text(input.id));
+      if (!actor || actor.id !== input.userId) throw new Error("You cannot change these notifications.");
+      return markAllRead(state, actor.id);
+    case "mark-read": {
+      const id = text(input.id);
+      if (!actor || !state.notifications.some((notice) => notice.id === id && notice.userId === actor.id)) return;
+      return markRead(state, id);
+    }
   }
 }

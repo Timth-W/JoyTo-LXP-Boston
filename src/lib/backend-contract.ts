@@ -37,5 +37,5 @@ export type BackendMutationResult<Action extends BackendMutationAction> = Action
     : Action extends "create-mission"
       ? string
       : Action extends "link-by-code"
-        ? AuthError | null
+        ? AuthError | { seniorId: string }
         : void;
