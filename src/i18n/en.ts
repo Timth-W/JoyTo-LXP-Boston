@@ -736,6 +736,12 @@ export const en = {
       gift: "The gift card is offered.",
       skip: "No problem.",
     },
+    search: {
+      clarify: "What kind of activity would you enjoy?",
+      noMatch: "I couldn't find an activity that fits. Would you like to try a different day or activity?",
+      options: (first: string, second: string) => `How about ${first} or ${second}? Which would you prefer?`,
+      choose: "Which of these activities would you prefer? You can tap its card or tell me its name.",
+    },
     demo: {
       confirmPrompt: "Great! Tap the green button to confirm.",
       next: "Of course.",

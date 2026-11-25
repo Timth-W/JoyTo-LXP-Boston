@@ -11,6 +11,7 @@ export const DAY_VALUES = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as c
 export const candidateSchema = z.object({
   id: z.string(),
   title: z.string(),
+  description: z.string().optional(),
   category: z.enum(CATEGORY_VALUES),
   start: z.string(),
   place: z.string(),

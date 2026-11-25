@@ -134,8 +134,10 @@ export function proposalsFor(s: State, user: User, seniorId?: string): Proposal[
 }
 
 /** Upcoming outings can be recalled in conversation. Suggestions offer new actions. */
-export function joySuggestions(proposals: readonly Proposal[]): Proposal[] {
-  return proposals.filter((proposal) => proposal.kind !== "upcoming");
+export function joySuggestions(proposals: readonly Proposal[], activityIds: readonly string[] | null = null): Proposal[] {
+  return proposals.filter((proposal) =>
+    activityIds === null ? proposal.kind !== "upcoming" : proposal.kind === "join" && activityIds.includes(proposal.activityId),
+  );
 }
 
 /** Extra "join" proposals for activities found during the conversation. */

@@ -731,6 +731,12 @@ export const fr: Dict = {
       gift: "La carte cadeau est offerte.",
       skip: "Pas de souci.",
     },
+    search: {
+      clarify: "Quel genre d’activité vous ferait plaisir ?",
+      noMatch: "Je n’ai pas trouvé d’activité qui corresponde. Voulez-vous essayer un autre jour ou une autre activité ?",
+      options: (first, second) => `Je vous propose ${first} ou ${second}. Laquelle préférez-vous ?`,
+      choose: "Laquelle de ces activités préférez-vous ? Vous pouvez toucher sa carte ou me dire son nom.",
+    },
     demo: {
       confirmPrompt: "Très bien ! Touchez le bouton vert pour confirmer.",
       next: "Bien sûr.",

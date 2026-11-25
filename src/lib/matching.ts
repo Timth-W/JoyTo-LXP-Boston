@@ -7,7 +7,7 @@
  */
 import { slotOf, dayKey } from "./format";
 import { activityById, attendees, isActivityPast, isPast, isRegistered, seatsLeft, userById } from "./selectors";
-import type { Activity, Category, Intent, Mission, SectorId, Slot, State, User } from "./types";
+import type { Activity, Category, DayKey, Intent, Mission, SectorId, Slot, State, User } from "./types";
 
 export type Reason =
   | { kind: "likes"; category: Category }
@@ -29,6 +29,62 @@ export function eligibleActivities(s: State, senior: User): Activity[] {
   return s.activities.filter((a) => !isActivityPast(a.start) && seatsLeft(s, a) > 0 && !isRegistered(s, a.id, senior.id));
 }
 
+export interface ActivitySearch {
+  categories?: Category[];
+  excludedCategories?: Category[];
+  days?: DayKey[];
+  excludedDays?: DayKey[];
+  moment?: "am" | "pm" | "evening";
+  excludedMoments?: NonNullable<ActivitySearch["moment"]>[];
+  date?: string;
+  throughDate?: string;
+  excludedDates?: string[];
+  terms?: string[];
+}
+
+export const normalizeSearchText = (text: string) => text.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+
+const TERM_VARIANTS = [
+  ["choir", "chorale", "singing", "sing", "chant"],
+  ["concert", "recital"],
+  ["guitar", "guitare"],
+  ["violin", "violon"],
+  ["crossword", "mots croises"],
+  ["chess", "echecs"],
+  ["museum", "musee"],
+  ["exhibition", "exposition"],
+  ["classi", "classical", "classique"],
+  ["acousti", "acoustic", "acoustique"],
+];
+
+function matchesSearchTerm(catalogueText: string, term: string): boolean {
+  const normalized = normalizeSearchText(term);
+  const variants = TERM_VARIANTS.find((group) => group.includes(normalized)) ?? [normalized];
+  return variants.some((variant) => catalogueText.includes(variant));
+}
+
+export function matchesActivitySearch(
+  activity: { category: Category; start: string; title: string; description?: string },
+  search: ActivitySearch,
+): boolean {
+  const date = activity.start.slice(0, 10);
+  const catalogueText = normalizeSearchText(`${activity.title} ${activity.description ?? ""}`);
+  const day = dayKey(activity.start);
+  const hour = Number(activity.start.slice(11, 13));
+  const moment = hour < 12 ? "am" : hour < 18 ? "pm" : "evening";
+  return (
+    (!search.categories?.length || search.categories.includes(activity.category)) &&
+    !search.excludedCategories?.includes(activity.category) &&
+    (!search.days?.length || search.days.includes(day)) &&
+    !search.excludedDays?.includes(day) &&
+    (!search.moment || search.moment === moment) &&
+    !search.excludedMoments?.includes(moment) &&
+    (!search.date || (date >= search.date && date <= (search.throughDate ?? search.date))) &&
+    !search.excludedDates?.includes(date) &&
+    (!search.terms?.length || search.terms.every((term) => matchesSearchTerm(catalogueText, term)))
+  );
+}
+
 export function rankActivities(s: State, senior: User, intent?: Intent, limit = 3): Ranked<Activity>[] {
   let list = eligibleActivities(s, senior);
   if (intent?.days.length) list = list.filter((a) => intent.days.includes(dayKey(a.start)));
@@ -39,6 +95,20 @@ export function rankActivities(s: State, senior: User, intent?: Intent, limit = 
   if (intent?.categories.length && list.some((a) => intent.categories.includes(a.category))) {
     list = list.filter((a) => intent.categories.includes(a.category));
   }
+  return rankEligibleActivities(s, senior, list, limit);
+}
+
+export function rankActivitySearch(s: State, senior: User, search: ActivitySearch, limit: number, excludedIds: readonly string[] = []) {
+  const list = eligibleActivities(s, senior).filter((activity) => {
+    const title = typeof activity.title === "string" ? activity.title : `${activity.title.en} ${activity.title.fr}`;
+    const description =
+      typeof activity.description === "string" ? activity.description : `${activity.description.en} ${activity.description.fr}`;
+    return !excludedIds.includes(activity.id) && matchesActivitySearch({ ...activity, title, description }, search);
+  });
+  return rankEligibleActivities(s, senior, list, limit);
+}
+
+function rankEligibleActivities(s: State, senior: User, list: Activity[], limit: number): Ranked<Activity>[] {
   return list
     .map((a) => {
       let score = 0;

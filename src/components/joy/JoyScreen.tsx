@@ -9,14 +9,17 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useI18n } from "@/i18n";
-import type { AssistantRequest, AssistantResponse } from "@/lib/ai/schema";
-import { dayKey } from "@/lib/format";
+import { activityTurn, ANOTHER_ACTIVITY } from "@/lib/ai/activity-intent";
+import { demoAssistant } from "@/lib/ai/demo";
+import type { AssistantRequest, ModelResponse } from "@/lib/ai/schema";
+import { toLocalIso } from "@/lib/format";
 import { joinProposal, joyMoodProposals, joySuggestions, proposalsFor, type JoyMood, type Proposal } from "@/lib/joy/proposals";
+import { joyActivitySearchSchema } from "@/lib/joy/realtime";
 import { greeting, keywords, proposalCard, proposalLine } from "@/lib/joy/script";
-import { eligibleActivities, rankActivities } from "@/lib/matching";
+import { eligibleActivities, matchesActivitySearch, normalizeSearchText, rankActivitySearch } from "@/lib/matching";
 import { attendees, seatsLeft } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
-import type { Category, DayKey, User } from "@/lib/types";
+import type { User } from "@/lib/types";
 import { Icon } from "../Icon";
 import { JoyCheckIn } from "./JoyCheckIn";
 import { JoyConversation } from "./JoyConversation";
@@ -35,13 +38,18 @@ const YES =
   / (yes|yeah|yep|ok|okay|sure|please|of course|why not|gladly|oui|ouais|d'accord|daccord|volontiers|avec plaisir|pourquoi pas|bien sur|carrement|go) /;
 const NO = / (no|nope|not now|later|something else|another|next|non|pas maintenant|plus tard|autre chose|une autre|suivant) /;
 const BYE = / (bye|goodbye|stop|that's all|au revoir|a bientot|arrete|c'est tout) /;
+const ACCEPT =
+  /^(oui|ouais|yes|yeah|yep|ok|okay|d'accord|volontiers|avec plaisir|sure|why not|pourquoi pas)( (merci|thanks|please|s'il vous plait))?$/;
+const DECLINE = /^(no|no thanks|not now|non|non merci|pas maintenant|plus tard)$/;
+const FIRST = /^(the first( one)?|la premiere|le premier)$/;
+const SECOND = /^(the second( one)?|la deuxieme|la seconde|le deuxieme|le second)$/;
 
 export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: string }) {
   const { state } = useStore();
   const { t, f, locale } = useI18n();
   const x = useMemo(() => ({ t, f, locale }), [t, f, locale]);
 
-  const [extraIds, setExtraIds] = useState<string[] | null>(null);
+  const [extraIds, setExtraIds] = useState<string[]>([]);
   const [focusId, setFocusId] = useState<string | null>(null);
   const [sheetId, setSheetId] = useState<string | null>(null);
   const [text, setText] = useState("");
@@ -51,6 +59,16 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
   const textInput = useRef<HTMLInputElement>(null);
   const checkInStart = useRef<HTMLButtonElement>(null);
   const search = useRef<AbortController | null>(null);
+  const history = useRef<AssistantRequest["history"]>([]);
+  const activityIds = useRef<string[]>([]);
+  const seenActivityIds = useRef<string[]>([]);
+
+  const showActivities = useCallback((ids: string[], another = false) => {
+    activityIds.current = ids;
+    seenActivityIds.current = another ? [...seenActivityIds.current, ...ids] : ids;
+    setExtraIds(ids);
+    setFocusId(ids.length === 1 ? `join:${ids[0]}` : null);
+  }, []);
 
   useEffect(() => {
     if (showText && textInput.current?.getClientRects().length) textInput.current.focus();
@@ -62,7 +80,7 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
     const base = proposalsFor(state, viewer, seniorId);
     if (viewer.role !== "senior") return base;
     const eligible = new Set(eligibleActivities(state, viewer).map((a) => a.id));
-    const extras = (extraIds ?? []).filter((id) => eligible.has(id)).map((id) => joinProposal(state, viewer, id));
+    const extras = extraIds.filter((id) => eligible.has(id)).map((id) => joinProposal(state, viewer, id));
     const checkIn = mood ? joyMoodProposals(state, viewer, mood) : [];
     return Array.from(new Map([...extras, ...checkIn, ...base].map((proposal) => [proposal.id, proposal])).values());
   }, [state, viewer, seniorId, extraIds, mood]);
@@ -73,6 +91,10 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
   proposalsRef.current = proposals;
   const focusRef = useRef(focusId);
   focusRef.current = focusId;
+  const activeSuggestions = useCallback(
+    () => joySuggestions(proposalsRef.current, viewer.role === "senior" ? activityIds.current : null),
+    [viewer.role],
+  );
 
   /* ---------- Understanding the person in demo mode (simple rules + the text AI for seniors) ---------- */
 
@@ -90,28 +112,35 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
   );
 
   const askTextAssistant = useCallback(
-    async (message: string): Promise<string | null> => {
-      if (viewer.role !== "senior") return null;
-      const candidates = eligibleActivities(state, viewer).map((a) => ({
-        id: a.id,
-        title: f.text(a.title),
-        category: a.category,
-        start: a.start,
-        place: f.text(a.place),
-        seatsLeft: seatsLeft(state, a),
-        attendees: attendees(state, a.id).map((p) => ({ firstName: p.firstName, interests: p.interests })),
-      }));
+    async (message: string, another = false): Promise<string | null> => {
       const body: AssistantRequest = {
         locale,
         message,
-        today: state.now,
+        today: toLocalIso(new Date()),
         profile: { firstName: viewer.firstName, interests: viewer.interests, availability: viewer.availability, sector: viewer.sector },
-        history: [],
-        candidates,
+        history: history.current,
+        candidates: [],
       };
+      const { search: criteria } = activityTurn(body);
+      body.candidates = eligibleActivities(state, viewer)
+        .map((a) => ({
+          id: a.id,
+          title: f.text(a.title),
+          description: f.text(a.description),
+          category: a.category,
+          start: a.start,
+          place: f.text(a.place),
+          seatsLeft: seatsLeft(state, a),
+          attendees: attendees(state, a.id).map((p) => ({ firstName: p.firstName, interests: p.interests })),
+        }))
+        .filter((candidate) => (!another || !seenActivityIds.current.includes(candidate.id)) && matchesActivitySearch(candidate, criteria))
+        .slice(0, 40);
+      history.current = [...body.history, { from: "user" as const, text: message }].slice(-10);
+      showActivities([], another);
       search.current?.abort();
       const request = new AbortController();
       search.current = request;
+      let out: ModelResponse | null = null;
       try {
         const res = await fetch("/api/assistant", {
           method: "POST",
@@ -119,36 +148,72 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
           body: JSON.stringify(body),
           signal: request.signal,
         });
-        if (!res.ok) return null;
-        const out = (await res.json()) as AssistantResponse;
-        if (request.signal.aborted) return null;
-        const ids = out.suggestions.slice(0, 2).map((s) => s.activityId);
-        setExtraIds(ids);
-        setFocusId(ids.length ? `join:${ids[0]}` : null);
-        return out.clarification ? `${out.reply} ${out.clarification}` : out.reply;
+        if (res.ok) out = (await res.json()) as ModelResponse;
       } catch {
-        return null;
+        // The browser can still match catalogue entries if the assistant request fails.
       }
+      if (request.signal.aborted) return null;
+      out ??= demoAssistant(body);
+      const ids = [...new Set(out.suggestions.map(({ activityId }) => activityId))]
+        .filter((id) => body.candidates.some((candidate) => candidate.id === id))
+        .slice(0, 2);
+      showActivities(ids, another);
+      const [first, second] = ids.map((id) => joinProposal(state, viewer, id));
+      if (first && second)
+        return t.joy.search.options(proposalCard(first, state, viewer, x).title, proposalCard(second, state, viewer, x).title);
+      if (first) return proposalLine(first, state, viewer, x);
+      return out.clarification ? `${out.reply} ${out.clarification}` : out.reply;
     },
-    [viewer, state, f, locale],
+    [viewer, state, f, locale, showActivities, t, x],
   );
 
   const respond = useCallback(
     async (said: string): Promise<string | null> => {
       const n = normalize(said);
-      const list = joySuggestions(proposalsRef.current);
-      const match = findMatch(said);
+      const command = n.trim();
+      const list = activeSuggestions();
       const focused = list.find((p) => p.id === focusRef.current) ?? null;
+      if (BYE.test(n)) {
+        window.setTimeout(() => voice.stop(), 3500);
+        return t.joy.demo.bye;
+      }
+      if (viewer.role === "senior") {
+        if (ACCEPT.test(command)) {
+          const target = focused ?? (list.length === 1 ? list[0] : null);
+          if (!target) return list.length ? t.joy.search.choose : t.joy.search.clarify;
+          setSheetId(target.id);
+          return t.joy.demo.confirmPrompt;
+        }
+        if (DECLINE.test(command)) {
+          showActivities([]);
+          return t.joy.search.clarify;
+        }
+        const selected =
+          list.length &&
+          (FIRST.test(command)
+            ? list[0]
+            : SECOND.test(command)
+              ? list[1]
+              : list.find(
+                  (proposal) =>
+                    normalizeSearchText(proposalCard(proposal, state, viewer, x).title).replace(/[.!?]+$/, "") ===
+                    normalizeSearchText(said)
+                      .trim()
+                      .replace(/[.!?]+$/, ""),
+                ));
+        if (selected) {
+          setFocusId(selected.id);
+          return proposalLine(selected, state, viewer, x);
+        }
+        return askTextAssistant(said, ANOTHER_ACTIVITY.test(command));
+      }
+      const match = findMatch(said);
       if (YES.test(n) && !NO.test(n)) {
         const target = match ?? focused ?? list[0];
         if (!target) return t.joy.nothing;
         setFocusId(target.id);
         setSheetId(target.id);
         return t.joy.demo.confirmPrompt;
-      }
-      if (BYE.test(n)) {
-        window.setTimeout(() => voice.stop(), 3500);
-        return t.joy.demo.bye;
       }
       if (match) {
         setFocusId(match.id);
@@ -161,48 +226,53 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
         setFocusId(next.id);
         return `${t.joy.demo.next} ${proposalLine(next, state, viewer, x)}`;
       }
-      return (await askTextAssistant(said)) ?? t.joy.demo.notUnderstood;
+      return t.joy.demo.notUnderstood;
     },
     // `voice` is declared below; it is only used inside a timer, after it exists.
-    [findMatch, askTextAssistant, state, viewer, x, t],
+    [findMatch, askTextAssistant, state, viewer, x, t, showActivities, activeSuggestions],
   );
 
   /* ---------- Tool calls from GPT Realtime ---------- */
 
   const onFind = useCallback(
-    async (args: { category?: string; day?: string }) => {
+    async (args: unknown) => {
       if (viewer.role !== "senior") return [];
-      const ranked = rankActivities(
-        state,
-        viewer,
-        {
-          categories: args.category ? [args.category as Category] : [],
-          days: args.day ? [args.day as DayKey] : [],
-          moment: null,
-          wantsCompanion: false,
-          wantsGroup: true,
-        },
-        3,
-      )
-        .filter((r) => !args.day || dayKey(r.item.start) === args.day)
-        .slice(0, 2);
+      const parsed = joyActivitySearchSchema.safeParse(args);
+      if (!parsed.success) {
+        showActivities([]);
+        return [];
+      }
+      const { another, clear, ...criteria } = parsed.data;
+      if (
+        clear ||
+        !Object.entries(criteria).some(
+          ([key, criterion]) => key !== "throughDate" && (Array.isArray(criterion) ? criterion.length : criterion),
+        )
+      ) {
+        showActivities([]);
+        return [];
+      }
+      const ranked = rankActivitySearch(state, viewer, criteria, 2, another ? seenActivityIds.current : []);
       const ids = ranked.map((r) => r.item.id);
-      setExtraIds(ids);
+      showActivities(ids, another);
       return ids.map((id) => {
         const p = joinProposal(state, viewer, id);
         return { proposal_id: p.id, line: proposalLine(p, state, viewer, x) };
       });
     },
-    [state, viewer, x],
+    [state, viewer, x, showActivities],
   );
 
   const voice = useJoyVoice(locale, {
     respond,
-    onShow: (id) => setFocusId(id),
+    onShow: (id) => {
+      if (activeSuggestions().some((p) => p.id === id)) setFocusId(id);
+    },
     onOpen: (id) => {
-      if (!proposalsRef.current.some((p) => p.id === id)) return;
+      if (!activeSuggestions().some((p) => p.id === id)) return false;
       setFocusId(id);
       setSheetId(id);
+      return true;
     },
     onFind,
   });
@@ -211,22 +281,35 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
     () => ({
       role: viewer.role,
       firstName: viewer.firstName,
+      today: toLocalIso(new Date()).slice(0, 10),
+      activityPreferences: history.current.length
+        ? activityTurn({
+            history: history.current,
+            today: toLocalIso(new Date()),
+            message: "",
+          }).search
+        : undefined,
       greeting: opening,
-      proposals: proposals.map((p) => {
-        const c = proposalCard(p, state, viewer, x);
-        return { id: p.id, line: proposalLine(p, state, viewer, x), label: `${c.title}, ${c.subtitle}` };
-      }),
+      proposals: (viewer.role === "senior"
+        ? [...joySuggestions(proposals, extraIds), ...proposals.filter((proposal) => proposal.kind === "upcoming")]
+        : proposals
+      )
+        .slice(0, 8)
+        .map((p) => {
+          const c = proposalCard(p, state, viewer, x);
+          return { id: p.id, line: proposalLine(p, state, viewer, x), label: c.title };
+        }),
     }),
-    [state, viewer, proposals, x, opening],
+    [state, viewer, proposals, x, opening, extraIds],
   );
 
   const startVoice = useCallback(() => {
     if (!intro) {
       setIntro({ source: "joy", text: opening, time: Date.now() });
-      setFocusId(suggestions[0]?.id ?? null);
+      setFocusId(viewer.role === "senior" ? null : (suggestions[0]?.id ?? null));
     }
     voice.start(context(), !intro);
-  }, [voice, context, suggestions, opening, intro]);
+  }, [voice, context, suggestions, opening, intro, viewer.role]);
 
   function openWriting() {
     if (!intro) setIntro({ source: "joy", text: opening, time: Date.now() });
@@ -250,8 +333,8 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
     search.current?.abort();
     voice.stop();
     setIntro(null);
-    setExtraIds(null);
-    setFocusId(null);
+    history.current = [];
+    showActivities([]);
     setShowText(false);
     setText("");
     window.requestAnimationFrame(() => {
@@ -272,8 +355,8 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
   const sheet = proposals.find((p) => p.id === sheetId) ?? null;
   const focusedSuggestion = suggestions.slice(2).find((proposal) => proposal.id === focusId);
   const visibleSuggestions = focusedSuggestion ? [suggestions[0], focusedSuggestion] : suggestions.slice(0, 2);
-  const conversationSuggestions =
-    extraIds === null ? visibleSuggestions : proposals.filter((p) => p.kind === "join" && extraIds.includes(p.activityId));
+  const seniorConversation = intro && viewer.role === "senior";
+  const conversationSuggestions = seniorConversation ? joySuggestions(proposals, extraIds) : visibleSuggestions;
   const recording =
     voiceSession && (voice.mode === "realtime" ? voice.micOn && voice.status !== "connecting" : voice.status === "listening");
   const canSpeak =
@@ -432,55 +515,57 @@ export function JoyScreen({ viewer, seniorId }: { viewer: User; seniorId?: strin
         </p>
       </section>
 
-      <section className="joy-suggestions" aria-labelledby="joy-proposals">
-        <div className="joy-suggestions-head">
-          <div className="stack-sm">
-            <h2 id="joy-proposals">{t.joy.proposalsTitle}</h2>
-            <p>{t.joy.proposalsHint}</p>
+      {(!seniorConversation || conversationSuggestions.length > 0) && (
+        <section className="joy-suggestions" aria-labelledby="joy-proposals">
+          <div className="joy-suggestions-head">
+            <div className="stack-sm">
+              <h2 id="joy-proposals">{t.joy.proposalsTitle}</h2>
+              <p>{t.joy.proposalsHint}</p>
+            </div>
+            <span className="joy-suggestions-note">
+              <Icon name="heart" size={18} />
+              {t.joy.yourChoice}
+            </span>
           </div>
-          <span className="joy-suggestions-note">
-            <Icon name="heart" size={18} />
-            {t.joy.yourChoice}
-          </span>
-        </div>
-        {visibleSuggestions.length ? (
-          <div className="proposal-grid">
-            {visibleSuggestions.map((p) => {
-              const c = proposalCard(p, state, viewer, x);
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={`proposal${focusId === p.id ? " focused" : ""}`}
-                  data-kind={p.kind}
-                  onClick={() => selectProposal(p)}
-                >
-                  <span className="proposal-top">
-                    <span className="cat-icon" aria-hidden="true">
-                      <Icon name={c.icon} />
+          {conversationSuggestions.length ? (
+            <div className="proposal-grid">
+              {conversationSuggestions.map((p) => {
+                const c = proposalCard(p, state, viewer, x);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={`proposal${focusId === p.id ? " focused" : ""}`}
+                    data-kind={p.kind}
+                    onClick={() => selectProposal(p)}
+                  >
+                    <span className="proposal-top">
+                      <span className="cat-icon" aria-hidden="true">
+                        <Icon name={c.icon} />
+                      </span>
+                      <span className="proposal-kind">{t.joy.proposalKinds[p.kind]}</span>
                     </span>
-                    <span className="proposal-kind">{t.joy.proposalKinds[p.kind]}</span>
-                  </span>
-                  <span className="proposal-body">
-                    <span className="proposal-title">{c.title}</span>
-                    <span className="proposal-sub">{c.subtitle}</span>
-                  </span>
-                  <span className="proposal-footer">
-                    <span className="proposal-action">{c.action}</span>
-                    <Icon name="arrowRight" size={20} />
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="joy-empty">
-            <Icon name="leaf" size={32} />
-            <p>{t.joy.noProposals}</p>
-            <p className="muted">{t.joy.emptyHint}</p>
-          </div>
-        )}
-      </section>
+                    <span className="proposal-body">
+                      <span className="proposal-title">{c.title}</span>
+                      <span className="proposal-sub">{c.subtitle}</span>
+                    </span>
+                    <span className="proposal-footer">
+                      <span className="proposal-action">{c.action}</span>
+                      <Icon name="arrowRight" size={20} />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="joy-empty">
+              <Icon name="leaf" size={32} />
+              <p>{t.joy.noProposals}</p>
+              <p className="muted">{t.joy.emptyHint}</p>
+            </div>
+          )}
+        </section>
+      )}
 
       {sheet ? <ProposalSheet proposal={sheet} viewer={viewer} onClose={() => setSheetId(null)} onConfirmed={onConfirmed} /> : null}
     </div>

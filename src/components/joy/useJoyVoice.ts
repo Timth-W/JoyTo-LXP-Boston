@@ -7,6 +7,7 @@
  * The screen (JoyScreen) decides what Joy says in demo mode and reacts to the AI's tool calls.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { JoySessionRequest } from "@/lib/joy/realtime";
 import type { Locale } from "@/lib/types";
 
 export type JoyMode = "realtime" | "demo";
@@ -14,19 +15,14 @@ export type JoyStatus = "off" | "connecting" | "speaking" | "listening" | "think
 
 export type JoyMessage = { source: "joy" | "voice" | "text"; text: string; time: number };
 
-export interface JoyContext {
-  role: "senior" | "companion" | "family";
-  firstName: string;
-  greeting: string;
-  proposals: { id: string; line: string; label: string }[];
-}
+export type JoyContext = Omit<JoySessionRequest, "locale">;
 
 export interface JoyHandlers {
   /** Demo mode: what Joy answers to the user's words (may also highlight or open a card). */
   respond: (text: string) => Promise<string | null>;
   onShow: (proposalId: string) => void;
-  onOpen: (proposalId: string) => void;
-  onFind: (args: { category?: string; day?: string }) => Promise<{ proposal_id: string; line: string }[]>;
+  onOpen: (proposalId: string) => boolean;
+  onFind: (args: unknown) => Promise<{ proposal_id: string; line: string }[]>;
 }
 
 type Recognition = {
@@ -287,8 +283,8 @@ export function useJoyVoice(locale: Locale, handlers: JoyHandlers) {
         let output: unknown = { ok: true };
         if (name === "show_proposal") handlersRef.current.onShow(args.proposal_id);
         else if (name === "open_confirmation") {
-          handlersRef.current.onOpen(args.proposal_id);
-          output = { opened: true, note: "Nothing is booked yet: the user must tap the green button." };
+          const opened = handlersRef.current.onOpen(args.proposal_id);
+          output = opened ? { opened, note: "The user must tap the green button to confirm." } : { opened };
         } else if (name === "find_activities") output = { activities: await handlersRef.current.onFind(args) };
         else if (name === "end_conversation") {
           window.setTimeout(stop, 2500);

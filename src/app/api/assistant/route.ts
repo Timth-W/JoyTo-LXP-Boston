@@ -8,9 +8,11 @@
  * Without a key, or if the answer is invalid: rule-based demo mode (src/lib/ai/demo.ts).
  */
 import { NextResponse } from "next/server";
+import { activityTurn } from "@/lib/ai/activity-intent";
 import { demoAssistant } from "@/lib/ai/demo";
 import { buildUserContent, systemPrompt } from "@/lib/ai/prompt";
 import { sanitize } from "@/lib/ai/sanitize";
+import { matchesActivitySearch, type ActivitySearch } from "@/lib/matching";
 import {
   assistantRequestSchema,
   modelResponseSchema,
@@ -22,7 +24,7 @@ import {
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const TIMEOUT_MS = 20_000;
 
-async function callModel(req: AssistantRequest, apiKey: string): Promise<ModelResponse> {
+async function callModel(req: AssistantRequest, apiKey: string, preferences: ActivitySearch): Promise<ModelResponse> {
   const res = await fetch(ANTHROPIC_URL, {
     method: "POST",
     signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -35,7 +37,7 @@ async function callModel(req: AssistantRequest, apiKey: string): Promise<ModelRe
       model: process.env.ANTHROPIC_MODEL || "claude-haiku-5-5",
       max_tokens: 900,
       system: systemPrompt(req.locale),
-      messages: [{ role: "user", content: buildUserContent(req) }],
+      messages: [{ role: "user", content: buildUserContent(req, preferences) }],
     }),
   });
   if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
@@ -58,9 +60,22 @@ export async function POST(request: Request) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (apiKey) {
+    const { search } = activityTurn(req);
+    const scoped = { ...req, candidates: req.candidates.filter((candidate) => matchesActivitySearch(candidate, search)) };
     try {
-      const out = sanitize(await callModel(req, apiKey), req);
-      return NextResponse.json({ ...out, source: "ai" } satisfies AssistantResponse);
+      if (scoped.candidates.length) {
+        const proposed = await callModel(scoped, apiKey, search);
+        const candidates = scoped.candidates.filter((candidate) =>
+          matchesActivitySearch(candidate, {
+            categories: proposed.intent.categories,
+            days: proposed.intent.days,
+          }),
+        );
+        const out = sanitize(proposed, { ...scoped, candidates });
+        if (out.suggestions.length === proposed.suggestions.length) {
+          return NextResponse.json({ ...out, source: "ai" } satisfies AssistantResponse);
+        }
+      }
     } catch (err) {
       console.error("[assistant] AI call failed, falling back to demo mode:", err);
     }
