@@ -8,7 +8,7 @@ import { SegmentedControl } from "@/components/MobileUI";
 import { Empty, PageHead } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import { CATEGORY_IDS } from "@/lib/constants";
-import { catalogueActivities } from "@/lib/selectors";
+import { catalogueActivities, type ActivityPriceFilter } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
 import type { Category } from "@/lib/types";
 
@@ -16,14 +16,16 @@ export default function ActivitiesPage() {
   const { state, me } = useStore();
   const { t, locale } = useI18n();
   const [category, setCategory] = useState<Category | "all">("all");
+  const [price, setPrice] = useState<ActivityPriceFilter>("all");
   const [view, setView] = useState<"list" | "map">("list");
   const [query, setQuery] = useState("");
   if (!me) return null;
 
-  const list = catalogueActivities(state, category, query, locale);
-  const filtered = category !== "all" || Boolean(query.trim());
+  const list = catalogueActivities(state, category, query, locale, price);
+  const filtered = category !== "all" || price !== "all" || Boolean(query.trim());
   function resetFilters() {
     setCategory("all");
+    setPrice("all");
     setQuery("");
   }
 
@@ -82,6 +84,14 @@ export default function ActivitiesPage() {
             </label>
           ))}
         </div>
+        <div className="toggle-chips" role="group" aria-label={t.activity.price}>
+          {(["all", "free", "paid"] as const).map((value) => (
+            <label key={value} className="toggle-chip">
+              <input type="radio" name="price" checked={price === value} onChange={() => setPrice(value)} />
+              {value === "all" ? t.catalogue.allPrices : t.catalogue[value]}
+            </label>
+          ))}
+        </div>
       </section>
 
       <section className="catalogue-results" aria-labelledby="catalogue-results-title">
@@ -112,10 +122,10 @@ export default function ActivitiesPage() {
               ) : undefined
             }
           >
-            {query.trim() ? t.catalogue.noSearchResults : t.senior.noActivity}
+            {query.trim() ? t.catalogue.noSearchResults : price !== "all" ? t.catalogue.noMatchingActivities : t.senior.noActivity}
           </Empty>
         ) : view === "map" ? (
-          <ActivityMap key={`${category}:${query}`} activities={list} viewer={me} featured />
+          <ActivityMap key={`${category}:${query}:${price}`} activities={list} viewer={me} featured />
         ) : (
           <div className="catalogue-grid">
             {list.map((a) => (

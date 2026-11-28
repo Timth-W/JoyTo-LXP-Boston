@@ -143,7 +143,7 @@ export function ProposalSheet({
           </div>
         ) : null}
         <p className="small strong" style={{ color: "var(--forest)" }}>
-          {t.joy.sheet.free} · {t.activity.seatsLeft(seatsLeft(state, activity))}
+          {f.activityFee(activity.priceCents)} · {t.activity.seatsLeft(seatsLeft(state, activity))}
         </p>
       </>
     );
@@ -204,6 +204,7 @@ export function ProposalSheet({
             <span>{t.joy.sheet.toPay}</span>
             <span>{f.money(split.cardCents)}</span>
           </div>
+          {activity && activity.priceCents > 0 ? <p className="small">{f.activityFee(activity.priceCents)}</p> : null}
           <p className="muted small">{t.booking.cancellationPolicy}</p>
         </div>
       </form>

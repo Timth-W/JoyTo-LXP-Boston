@@ -268,6 +268,9 @@ export const fr: Dict = {
     inArea: (sector) => `Dans votre secteur (${sector})`,
   },
   activity: {
+    free: "Gratuit",
+    price: "Tarif de l’activité",
+    payOnSite: (price) => `Réglez ${price} sur place auprès de l’organisateur.`,
     seatsLeft: (n) => (n === 0 ? "Complet" : `${plural(n, "place restante", "places restantes")}`),
     imIn: "J'y vais",
     registered: "Inscrit·e",
@@ -338,6 +341,10 @@ export const fr: Dict = {
     noParticipantsPast: "Aucun participant inscrit à cette activité.",
   },
   catalogue: {
+    allPrices: "Tous les tarifs",
+    free: "Gratuites",
+    paid: "Payantes",
+    noMatchingActivities: "Aucune activité ne correspond à ces filtres.",
     eyebrow: "De beaux moments, tout près de vous",
     lead: "Une envie partagée, un nouveau visage, une sortie à attendre avec plaisir. Trouvez votre prochaine activité.",
     filterTitle: "Qu’est-ce qui vous ferait plaisir ?",
@@ -720,7 +727,6 @@ export const fr: Dict = {
       meetingPointFamily: (senior) => `Où l'accompagnant doit-il retrouver ${senior} ?`,
       meetingError: "Indiquez où l'accompagnant doit vous retrouver.",
       toPay: "Reste à payer",
-      free: "Gratuit",
       safe: "Rien ne se passe tant que vous ne touchez pas le bouton vert.",
     },
     ack: {

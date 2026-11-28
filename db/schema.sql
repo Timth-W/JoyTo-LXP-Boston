@@ -61,6 +61,7 @@ create table activities (
   place          text not null,
   sector         sector_id not null,
   capacity       int not null check (capacity > 0),
+  price_cents    int not null default 0 check (price_cents >= 0),
   organizer      text not null,
   latitude       double precision,
   longitude      double precision

@@ -58,7 +58,8 @@ export function proposalLine(p: Proposal, s: State, viewer: User, x: JoyText): s
       const a = activityById(s, p.activityId);
       if (!a) return "";
       const w = when(a.start, s.now, x);
-      return p.mates.length ? t.joy.line.joinWith(f.text(a.title), w, f.names(p.mates)) : t.joy.line.join(f.text(a.title), w);
+      const invitation = p.mates.length ? t.joy.line.joinWith(f.text(a.title), w, f.names(p.mates)) : t.joy.line.join(f.text(a.title), w);
+      return a.priceCents > 0 ? `${f.activityFee(a.priceCents)} ${invitation}` : invitation;
     }
     case "book": {
       const a = activityById(s, p.activityId);
@@ -108,7 +109,7 @@ export function proposalCard(p: Proposal, s: State, viewer: User, x: JoyText): P
       const a = activityById(s, p.activityId);
       return {
         title: a ? f.text(a.title) : "",
-        subtitle: a ? `${when(a.start, s.now, x)} · ${f.text(a.place)}` : "",
+        subtitle: a ? `${when(a.start, s.now, x)} · ${f.text(a.place)} · ${f.activityPrice(a.priceCents)}` : "",
         action: t.joy.action.join,
         icon: a ? CATEGORY_ICON[a.category] : "calendar",
       };

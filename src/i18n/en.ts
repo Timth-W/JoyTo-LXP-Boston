@@ -274,6 +274,9 @@ export const en = {
     inArea: (sector: string) => `In your area (${sector})`,
   },
   activity: {
+    free: "Free",
+    price: "Activity price",
+    payOnSite: (price: string) => `Pay ${price} to the organizer on site.`,
     seatsLeft: (n: number) => (n === 0 ? "Full" : `${plural(n, "seat", "seats")} left`),
     imIn: "I'm in",
     registered: "You're in",
@@ -344,6 +347,10 @@ export const en = {
     noParticipantsPast: "No registered participants for this activity.",
   },
   catalogue: {
+    allPrices: "All prices",
+    free: "Free",
+    paid: "Paid",
+    noMatchingActivities: "No activities match these filters.",
     eyebrow: "Good moments, close to home",
     lead: "A shared interest, a new face, something to look forward to. Find your next outing.",
     filterTitle: "What would you enjoy?",
@@ -725,7 +732,6 @@ export const en = {
       meetingPointFamily: (senior: string) => `Where should the companion meet ${senior}?`,
       meetingError: "Tell the companion where to meet.",
       toPay: "Left to pay",
-      free: "Free",
       safe: "Nothing happens until you tap the green button.",
     },
     ack: {

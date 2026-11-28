@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { parseStatePayload } from "../backend";
+import { CATEGORY_IDS } from "../constants";
 import { catalogueActivities } from "../selectors";
 import { createSeed } from "../seed";
 
@@ -38,6 +40,28 @@ describe("activity catalogue", () => {
     expect(catalogueActivities(state, "cooking", "museum", "en")).toEqual([]);
     expect(catalogueActivities(state, "all", "museum", "fr")).toEqual([]);
     expect(catalogueActivities(state, "all", "museum town", "en").map((a) => a.id)).toEqual(["later"]);
+  });
+
+  it("offers an upcoming free and paid activity in every theme after upgrading the demo catalogue", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-12-01T09:00:00"));
+    const seed = createSeed();
+    const legacyActivities = seed.activities.filter((activity) => Number(activity.id.slice(1)) <= 15);
+    const migrated = parseStatePayload({ ...seed, version: 6, activities: legacyActivities });
+
+    expect(migrated.activities).toEqual(seed.activities);
+    for (const category of CATEGORY_IDS) {
+      expect(catalogueActivities(migrated, category, "", "fr", "free").length, category).toBeGreaterThan(0);
+      expect(catalogueActivities(migrated, category, "", "fr", "paid").length, category).toBeGreaterThan(0);
+    }
+  });
+
+  it("filters by admission price alongside category and search", () => {
+    const state = fixture();
+    state.activities[0].priceCents = 800;
+    expect(catalogueActivities(state, "all", "", "en", "free").map((a) => a.id)).toEqual(["sooner"]);
+    expect(catalogueActivities(state, "culture", "museum", "en", "paid").map((a) => a.id)).toEqual(["later"]);
+    expect(catalogueActivities(state, "cooking", "", "en", "paid")).toEqual([]);
   });
 
   it("keeps full and already joined activities visible so their status can be shown", () => {

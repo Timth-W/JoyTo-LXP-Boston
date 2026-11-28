@@ -27,6 +27,8 @@ export function makeFormatters(locale: Locale, t: Dict) {
     short: (iso: string) => formatShortDate(iso, locale),
     month: (iso: string) => formatMonth(iso, locale),
     money: (cents: number) => formatMoney(cents, locale),
+    activityPrice: (cents: number) => (cents === 0 ? t.activity.free : formatMoney(cents, locale)),
+    activityFee: (cents: number) => (cents === 0 ? t.activity.free : t.activity.payOnSite(formatMoney(cents, locale))),
     duration: (minutes: number) => formatDuration(minutes, locale),
     /** "5 hours" when it is a whole number of hours, otherwise "2 h 30 min". */
     hours: (minutes: number) => (minutes % 60 === 0 ? t.units.hours(minutes / 60) : formatDuration(minutes, locale)),

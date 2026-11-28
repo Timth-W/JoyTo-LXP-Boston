@@ -75,6 +75,15 @@ export default function ActivityDetail() {
               </dt>
               <dd>{f.text(a.organizer)}</dd>
             </div>
+            <div>
+              <dt>
+                <span className="activity-fact-icon">
+                  <Icon name="euro" />
+                </span>
+                {t.activity.price}
+              </dt>
+              <dd>{f.activityFee(a.priceCents)}</dd>
+            </div>
           </dl>
           <ActivityRegistration activity={a} viewer={senior} detail />
         </section>

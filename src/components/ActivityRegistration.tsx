@@ -84,6 +84,7 @@ export function ActivityRegistration({
           <p>
             {f.date(activity.start)} · {f.text(activity.place)}
           </p>
+          {action === "register" ? <p>{f.activityFee(activity.priceCents)}</p> : null}
         </ConfirmAction>
       ) : null}
       {toast}

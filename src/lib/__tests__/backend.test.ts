@@ -79,6 +79,18 @@ describe("server-side state store", () => {
     expect(parseStatePayload(migrated)).toEqual(migrated);
   });
 
+  it("adds admission prices to version 5 activities while preserving existing records", () => {
+    const seed = createSeed();
+    const activities = seed.activities.map(({ priceCents: _price, ...activity }) => activity);
+    const extra = { ...activities[0], id: "custom" };
+    const legacy = { ...seed, version: 5, activities: [...activities, extra] };
+
+    expect(parseStatePayload(legacy)).toEqual({
+      ...seed,
+      activities: [...seed.activities, { ...extra, priceCents: 0 }],
+    });
+  });
+
   it("keeps separate browser identities and strips private report fields from the HTTP response", async () => {
     const state = createSeed();
     const mission = state.missions.find((item) => item.seniorId === "u-marie")!;

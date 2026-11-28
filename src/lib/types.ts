@@ -66,6 +66,8 @@ export interface Activity {
   place: Text;
   sector: SectorId;
   capacity: number;
+  /** Admission fee paid to the organizer, in euro cents. Zero means free. */
+  priceCents: number;
   organizer: Text;
   description: Text;
   /** Position on the illustrated neighbourhood map, in percent. */

@@ -72,6 +72,9 @@ export function ActivityCard({
         ) : null}
       </div>
       {featured ? metadata : null}
+      <div>
+        <span className="badge">{f.activityPrice(activity.priceCents)}</span>
+      </div>
 
       {others.length ? (
         <div className="row" style={{ gap: 10 }}>

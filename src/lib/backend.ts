@@ -15,7 +15,7 @@ function normalizeState(raw: unknown): State {
   if (!raw || typeof raw !== "object") throw new Error("MySQL app_state payload is invalid.");
   const state = raw as State;
   if (
-    (state.version !== STATE_VERSION && state.version !== 4 && state.version !== 3) ||
+    ![3, 4, 5, 6, STATE_VERSION].includes(state.version) ||
     !Array.isArray(state.users) ||
     !Array.isArray(state.activities) ||
     !Array.isArray(state.registrations) ||
@@ -24,10 +24,15 @@ function normalizeState(raw: unknown): State {
     throw new Error("MySQL app_state payload has an unsupported version or shape.");
   }
   if (state.version === STATE_VERSION) return state;
-  // Add the new catalogue entries to existing databases, preserving all stored records.
-  const existingIds = new Set(state.activities.map((activity) => activity.id));
-  const additions = createDecemberDemoActivities().filter((activity) => !existingIds.has(activity.id));
-  return { ...state, version: STATE_VERSION, activities: [...state.activities, ...additions] };
+  const demo = createSeed().activities;
+  const demoPrices = new Map(demo.map((activity) => [activity.id, activity.priceCents]));
+  const activities = state.activities.map((activity) => ({
+    ...activity,
+    priceCents: activity.priceCents ?? demoPrices.get(activity.id) ?? 0,
+  }));
+  const existingIds = new Set(activities.map((activity) => activity.id));
+  activities.push(...createDecemberDemoActivities().filter((activity) => !existingIds.has(activity.id)));
+  return { ...state, version: STATE_VERSION, activities };
 }
 
 export function parseStatePayload(payload: unknown): State {

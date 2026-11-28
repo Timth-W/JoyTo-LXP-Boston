@@ -42,8 +42,16 @@ export const isPastAt = (iso: string, now: Date) => toDate(iso).getTime() < now.
 export const isPast = (s: State, iso: string) => isPastAt(iso, toDate(s.now));
 export const isActivityPast = (iso: string) => isPastAt(iso, new Date());
 
+export type ActivityPriceFilter = "all" | "free" | "paid";
+
 /** The catalogue includes all future activities, including full and already joined activities. */
-export function catalogueActivities(s: State, category: Category | "all", query: string, locale: Locale): Activity[] {
+export function catalogueActivities(
+  s: State,
+  category: Category | "all",
+  query: string,
+  locale: Locale,
+  price: ActivityPriceFilter = "all",
+): Activity[] {
   const normalize = (value: string) =>
     value
       .normalize("NFD")
@@ -52,6 +60,7 @@ export function catalogueActivities(s: State, category: Category | "all", query:
   const words = normalize(query).trim().split(/\s+/).filter(Boolean);
   return s.activities
     .filter((a) => !isActivityPast(a.start) && (category === "all" || a.category === category))
+    .filter((a) => price === "all" || price === (a.priceCents === 0 ? "free" : "paid"))
     .filter((a) => {
       const searchable = normalize(`${tx(a.title, locale)} ${tx(a.place, locale)}`);
       return words.every((word) => searchable.includes(word));

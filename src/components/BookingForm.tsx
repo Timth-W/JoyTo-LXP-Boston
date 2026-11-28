@@ -51,6 +51,7 @@ export function BookingForm({
   const [errors, setErrors] = useState<Errors>({});
   const [pending, setPending] = useState(false);
 
+  const activity = futureActivities.find((a) => a.id === activityId);
   const gift = giftMinutesLeft(state, senior.id);
   const price = useMemo(() => splitPayment(durationMin, gift), [durationMin, gift]);
   const payer = userById(state, payerId);
@@ -276,6 +277,7 @@ export function BookingForm({
           <span>{payer && payer.id !== booker.id ? t.booking.toPayBy(payer.firstName) : t.booking.toPay}</span>
           <span>{f.money(price.cardCents)}</span>
         </div>
+        {activity && activity.priceCents > 0 ? <p className="small">{f.activityFee(activity.priceCents)}</p> : null}
         <p className="muted small">{t.booking.priceNote} {t.booking.cancellationPolicy}</p>
       </div>
 

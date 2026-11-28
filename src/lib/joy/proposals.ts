@@ -18,7 +18,7 @@ import {
 import type { Intent, State, User } from "../types";
 
 export type Proposal =
-  /** Sign up to a free activity. */
+  /** Sign up to an activity. */
   | { id: string; kind: "join"; seniorId: string; activityId: string; mates: string[] }
   /** Book a paid companion to go to an activity (or for a walk when activityId is null). */
   | { id: string; kind: "book"; seniorId: string; activityId: string | null }
